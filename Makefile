@@ -170,7 +170,7 @@ ifneq ($(CPU_ONLY), 1)
 	LIBRARIES := cudart cublas curand
 endif
 
-LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_hl hdf5
+LIBRARIES += glog gflags protobuf boost_system boost_filesystem boost_timer m hdf5_hl hdf5
 
 # handle IO dependencies
 USE_LEVELDB ?= 1
@@ -383,8 +383,8 @@ CXXFLAGS += -MMD -MP
 
 ifeq ($(MAIN_TO_BUILD), CAFFE_MAIN)
     CXXFLAGS += -DCAFFE_MAIN
-else
-   
+else ifeq ($(MAIN_TO_BUILD), NETGEN)
+   CXXFLAGS += -DCAFFE_NET_GEN_MAIN   
 endif
 
 # Complete build flags.

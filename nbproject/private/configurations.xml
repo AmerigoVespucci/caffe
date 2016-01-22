@@ -72,6 +72,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenSeed.pb.cc</in>
+              <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
             </df>
@@ -160,6 +162,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenSeed.pb.cc</in>
+              <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
             </df>
@@ -248,6 +252,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenSeed.pb.cc</in>
+              <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
             </df>
@@ -429,6 +435,7 @@
             <in>signal_handler.h</in>
             <in>upgrade_proto.hpp</in>
           </df>
+          <in>GenSeed.pb.h</in>
           <in>blob.hpp</in>
           <in>caffe.hpp</in>
           <in>common.hpp</in>
@@ -577,6 +584,7 @@
           <df name="proto">
           </df>
           <df name="solvers">
+            <in>NetGen.cpp</in>
             <in>adadelta_solver.cpp</in>
             <in>adagrad_solver.cpp</in>
             <in>adam_solver.cpp</in>
@@ -742,6 +750,7 @@
         <runcommandpicklist>
           <runcommandpicklistitem>"${OUTPUT_PATH}"</runcommandpicklistitem>
           <runcommandpicklistitem>"${OUTPUT_PATH}" train --solver=/devlink/caffe/toys/WordEmbed/GramPosValid/solver.prototxt </runcommandpicklistitem>
+          <runcommandpicklistitem>"${OUTPUT_PATH}" train --solver=/devlink/caffe/toys/WordEmbed/GramPosValid/solver.prototxt</runcommandpicklistitem>
         </runcommandpicklist>
         <runcommand>"${OUTPUT_PATH}" train --solver=/devlink/caffe/toys/WordEmbed/GramPosValid/solver.prototxt</runcommand>
         <rundir>/home/eli/dev/caffe</rundir>

@@ -6,6 +6,7 @@
         <df name="src">
           <df name="caffe">
             <df name="proto">
+              <in>GenSeed.pb.cc</in>
               <in>caffe.pb.cc</in>
             </df>
           </df>
@@ -15,6 +16,7 @@
         <df name="src">
           <df name="caffe">
             <df name="proto">
+              <in>GenSeed.pb.cc</in>
               <in>caffe.pb.cc</in>
             </df>
           </df>
@@ -100,6 +102,7 @@
             <in>window_data_layer.cpp</in>
           </df>
           <df name="solvers">
+            <in>NetGen.cpp</in>
             <in>adadelta_solver.cpp</in>
             <in>adagrad_solver.cpp</in>
             <in>adam_solver.cpp</in>
@@ -201,11 +204,25 @@
           <preBuildCommand></preBuildCommand>
         </preBuild>
       </makefileType>
+      <item path=".build_debug/src/caffe/proto/GenSeed.pb.cc"
+            ex="false"
+            tool="1"
+            flavor2="4">
+        <ccTool flags="0">
+        </ccTool>
+      </item>
       <item path=".build_debug/src/caffe/proto/caffe.pb.cc"
             ex="false"
             tool="1"
             flavor2="4">
         <ccTool flags="0">
+        </ccTool>
+      </item>
+      <item path=".build_release/src/caffe/proto/GenSeed.pb.cc"
+            ex="false"
+            tool="1"
+            flavor2="4">
+        <ccTool flags="1">
         </ccTool>
       </item>
       <item path=".build_release/src/caffe/proto/caffe.pb.cc"
@@ -253,6 +270,7 @@
             <pElem>.</pElem>
           </incDir>
           <preprocessorList>
+            <Elem>CAFFE_MAIN</Elem>
             <Elem>DEBUG</Elem>
           </preprocessorList>
         </ccTool>
@@ -267,6 +285,7 @@
             <pElem>.</pElem>
           </incDir>
           <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
             <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
@@ -286,20 +305,6 @@
         </ccTool>
       </folder>
       <folder path="0/src">
-        <ccTool>
-          <incDir>
-            <pElem>.build_debug/src</pElem>
-            <pElem>src</pElem>
-            <pElem>include</pElem>
-            <pElem>/usr/local/cuda/include</pElem>
-            <pElem>.</pElem>
-          </incDir>
-          <preprocessorList>
-            <Elem>DEBUG</Elem>
-          </preprocessorList>
-        </ccTool>
-      </folder>
-      <folder path="0/tools">
         <ccTool>
           <incDir>
             <pElem>.build_debug/src</pElem>
@@ -510,6 +515,9 @@
             tool="1"
             flavor2="4">
         <ccTool flags="0">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/layers/hdf5_output_layer.cpp"
@@ -684,6 +692,13 @@
         <ccTool flags="0">
         </ccTool>
       </item>
+      <item path="src/caffe/solvers/NetGen.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="0">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
+        </ccTool>
+      </item>
       <item path="src/caffe/solvers/adadelta_solver.cpp"
             ex="false"
             tool="1"
@@ -776,51 +791,159 @@
         <ccTool flags="0">
         </ccTool>
       </item>
-      <item path="tools/caffe.cpp" ex="false" tool="1" flavor2="0">
-        <ccTool flags="0">
+      <item path="tools/caffe.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
-            <Elem>CAFFE_MAIN</Elem>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/compute_image_mean.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/convert_imageset.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/device_query.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/extract_features.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/finetune_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/net_speed_benchmark.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/test_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/train_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_net_proto_binary.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_net_proto_text.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_solver_proto_text.cpp"
@@ -828,6 +951,16 @@
             tool="1"
             flavor2="4">
         <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
     </conf>

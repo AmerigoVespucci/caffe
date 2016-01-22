@@ -10,7 +10,12 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/home/eli/dev/caffe/src/caffe/solvers/NetGen.cpp</file>
+            <file>file:/home/eli/dev/caffe/src/caffe/solvers/adadelta_solver.cpp</file>
+            <file>file:/home/eli/dev/caffe/tools/CMakeLists.txt</file>
+            <file>file:/home/eli/dev/caffe/src/caffe/proto/GenSeed.proto</file>
             <file>file:/home/eli/dev/caffe/tools/caffe.cpp</file>
+            <file>file:/home/eli/dev/caffe/src/caffe/layers/hdf5_data_layer.cpp</file>
             <file>file:/home/eli/dev/caffe/Makefile.config</file>
             <file>file:/home/eli/dev/caffe/Makefile</file>
         </group>

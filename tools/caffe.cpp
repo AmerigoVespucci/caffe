@@ -375,7 +375,7 @@ int time() {
 }
 RegisterBrewFunction(time); 
 
-#ifdef CAFFE_MAIN
+#ifdef CAFFE_MAIN 
 int main(int argc, char** argv) {
   // Print output to stderr (while still logging).
   FLAGS_alsologtostderr = 1;

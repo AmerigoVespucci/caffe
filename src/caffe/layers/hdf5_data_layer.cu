@@ -27,7 +27,7 @@ void HDF5DataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
             std::random_shuffle(file_permutation_.begin(),
                                 file_permutation_.end());
           }
-          DLOG(INFO) << "Looping around to first file.";
+//          DLOG(INFO) << "Looping around to first file.";
         }
         LoadHDF5FileData(
             hdf_filenames_[file_permutation_[current_file_]].c_str());
@@ -44,7 +44,7 @@ void HDF5DataLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     }
   }
 }
-
+ 
 INSTANTIATE_LAYER_GPU_FUNCS(HDF5DataLayer);
 
 }  // namespace caffe
