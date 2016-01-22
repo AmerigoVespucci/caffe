@@ -381,6 +381,12 @@ LIBRARY_DIRS += $(LIB_BUILD_DIR)
 # Automatic dependency generation (nvcc is handled separately)
 CXXFLAGS += -MMD -MP
 
+ifeq ($(MAIN_TO_BUILD), CAFFE_MAIN)
+    CXXFLAGS += -DCAFFE_MAIN
+else
+   
+endif
+
 # Complete build flags.
 COMMON_FLAGS += $(foreach includedir,$(INCLUDE_DIRS),-I$(includedir))
 CXXFLAGS += -pthread -fPIC $(COMMON_FLAGS) $(WARNINGS)
@@ -665,3 +671,4 @@ $(DISTRIBUTE_DIR): all py | $(DISTRIBUTE_SUBDIRS)
 	cp -r python $(DISTRIBUTE_DIR)/python
 
 -include $(DEPS)
+

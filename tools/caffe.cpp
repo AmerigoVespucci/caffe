@@ -373,8 +373,9 @@ int time() {
   LOG(INFO) << "*** Benchmark ends ***";
   return 0;
 }
-RegisterBrewFunction(time);
+RegisterBrewFunction(time); 
 
+#ifdef CAFFE_MAIN
 int main(int argc, char** argv) {
   // Print output to stderr (while still logging).
   FLAGS_alsologtostderr = 1;
@@ -403,3 +404,5 @@ int main(int argc, char** argv) {
     gflags::ShowUsageWithFlagsRestrict(argv[0], "tools/caffe");
   }
 }
+
+#endif // CAFFE_MAIN
