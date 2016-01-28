@@ -1,0 +1,37 @@
+message CaffeIpc {
+	enum MsgType {
+		INIT_NET = 1;
+		INIT_NET_DONE = 2;
+		NET_PREDICT = 3;
+		PREDICT_RESULT = 4;
+		END_NET = 5;
+	}
+
+    required MsgType type = 1;
+
+	message InitNetParams {
+		required string model_file = 1;
+		required string trained_file = 2;
+		required string input_layer_name = 3;
+		required int32 input_layer_bottom_idx = 4;
+		required string output_layer_name = 5;
+		required int32 output_layer_top_idx = 6;
+		required int32 input_num_channels_idx = 7;
+		required int32 input_height_idx = 8 ;
+		required int32 input_width_idx = 9;
+	}
+
+	optional InitNetParams init_net_params = 2;
+	optional bool init_net_done = 3;
+
+	message DataParam {
+		required int32 num_params = 1;
+		repeated float data_val = 2;
+	}
+
+	optional DataParam data_param = 4;
+
+}
+
+
+

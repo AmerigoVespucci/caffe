@@ -42,6 +42,8 @@
     using namespace H5;
 #endif
 
+#define USE_CPU
+	
 using namespace caffe;  // NOLINT(build/namespaces)
 using std::string;
 
@@ -431,6 +433,11 @@ void NGNet::ShakeupWeights()
 
 void NetGen::PreInit()
 {
+#ifdef USE_CPU
+	Caffe::set_mode(Caffe::CPU); 
+	return;
+#endif // USE_CPU
+	
 #ifdef CPU_ONLY
 	Caffe::set_mode(Caffe::CPU); 
 #else
@@ -638,14 +645,19 @@ string CreateSolverParamStr( float lr)
 					"lr_policy: \"step\"\n"
 					"gamma: 0.9\n"
 					"stepsize: 100000\n"
-					"display: 2000\n"
+					"display: 20\n" // should be ~2000
 					"max_iter: 500000\n"
+					"iter_size: 1\n"
 					"momentum: 0.9\n"
 					"weight_decay: 0.0005\n"
 					"snapshot: 100000\n"
 					"snapshot_prefix: \"/devlink/caffe/data/NetGen/GramPosValid/models/g\"\n"
 					"snapshot_after_train: false\n"
+#ifdef USE_CPU
+					"solver_mode: CPU\n";
+#else	
 					"solver_mode: GPU\n";
+#endif					
 
 	string s_lr = boost::lexical_cast<string>(lr);
 	modi = boost::replace_all_copy(modi, "#lr#", s_lr);
@@ -739,6 +751,8 @@ void NGNet::get_first_and_last_node_sizes(int& first_layer_size, int& last_layer
 
 float NGNet::DoRun(bool bIntersection, double growth_factor) {
 	// growth factor is the growth of the number of weights from an arbitrary 1000 weights
+#pragma message "return growth factor" 	
+	growth_factor = 1.0;
 	solver_->reset_loss_sum();
 	const double c_highway_run_time = 10.0; // this is a function of the patience requirement of the user
 	const double c_intersection_run_time = 6.0;
@@ -862,8 +876,8 @@ void NetGen::Init() {
 	int num_nodes_in_last_layer = config.num_output_nodes(); 
 	vector<int> ip_layer_idx_arr;
 	vector<int> num_nodes_in_layer;
-	num_nodes_in_layer.push_back(10); //core start 10 or 5
-	num_nodes_in_layer.push_back(3); // core start 3
+	num_nodes_in_layer.push_back(3200); //core start 10 or 5
+	num_nodes_in_layer.push_back(960); // core start 3  
 	const float c_start_lr = 0.01; // reasonab;e start 0.01
 	const float c_lr_mod_factor = 1.2f;
 	float lr = c_start_lr;
@@ -875,7 +889,7 @@ void NetGen::Init() {
 	ng_net->Gen(num_nodes_in_layer, -1, lr, &config);
 	int first_layer_size, last_layer_size;
 	ng_net->get_first_and_last_node_sizes(first_layer_size, last_layer_size);
-	double c_base_num_weights = 1000.0;	// keep at 1000+. Actually a patience param but we cnn set that with the base timing
+	double c_base_num_weights = 10000.0;	// keep at 1000+. Actually a patience param but we cnn set that with the base timing
 	int num_fails = 0;
 	float best_loss = FLT_MAX;
 	//boost::timer::cpu_timer progress_timer;
@@ -889,11 +903,13 @@ void NetGen::Init() {
 		}
 		num_weights_total += (		num_nodes_in_layer[num_nodes_in_layer.size()-1] 
 								*	last_layer_size);
+		std::cerr << "total num weights " << num_weights_total << "\n";
 		
 		double growth_factor = (double)num_weights_total
 								/ c_base_num_weights;
 		
 		float loss_highway = ng_net->DoRun(false, growth_factor);
+
 		if (b_test_once)
 		{
 			// test code

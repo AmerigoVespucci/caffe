@@ -4,7 +4,7 @@ namespace bp = boost::python;
 #endif
 
 #include <glog/logging.h>
-
+ 
 #include <cstring>
 #include <map>
 #include <string>
@@ -405,4 +405,4 @@ int main(int argc, char** argv) {
   }
 }
 
-#endif // CAFFE_MAIN
+#endif // CAFFE_MAIN 
