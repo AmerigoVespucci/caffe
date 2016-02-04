@@ -76,6 +76,8 @@
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
+              <in>ipc.pb.cc</in>
+              <in>ipc.pb.h</in>
             </df>
             <df name="solvers">
             </df>
@@ -166,6 +168,8 @@
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
+              <in>ipc.pb.cc</in>
+              <in>ipc.pb.h</in>
             </df>
             <df name="solvers">
             </df>
@@ -256,6 +260,8 @@
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
               <in>caffe.pb.h</in>
+              <in>ipc.pb.cc</in>
+              <in>ipc.pb.h</in>
             </df>
             <df name="solvers">
             </df>
@@ -584,6 +590,7 @@
           <df name="proto">
           </df>
           <df name="solvers">
+            <in>MultiNet.cpp</in>
             <in>NetGen.cpp</in>
             <in>adadelta_solver.cpp</in>
             <in>adagrad_solver.cpp</in>
@@ -735,6 +742,8 @@
         <gdb_interceptlist>
           <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
         </gdb_interceptlist>
+        <gdb_signals>
+        </gdb_signals>
         <gdb_options>
           <DebugOptions>
           </DebugOptions>

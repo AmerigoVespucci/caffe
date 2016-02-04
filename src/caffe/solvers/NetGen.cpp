@@ -42,7 +42,7 @@
     using namespace H5;
 #endif
 
-#define USE_CPU
+//#define USE_CPU
 	
 using namespace caffe;  // NOLINT(build/namespaces)
 using std::string;
@@ -645,7 +645,7 @@ string CreateSolverParamStr( float lr)
 					"lr_policy: \"step\"\n"
 					"gamma: 0.9\n"
 					"stepsize: 100000\n"
-					"display: 20\n" // should be ~2000
+					"display: 2000\n" // should be ~2000
 					"max_iter: 500000\n"
 					"iter_size: 1\n"
 					"momentum: 0.9\n"
@@ -751,10 +751,11 @@ void NGNet::get_first_and_last_node_sizes(int& first_layer_size, int& last_layer
 
 float NGNet::DoRun(bool bIntersection, double growth_factor) {
 	// growth factor is the growth of the number of weights from an arbitrary 1000 weights
-#pragma message "return growth factor" 	
+//#pragma message "return growth factor" 	
+	// following lines undoes the whole growth_factor logic
 	growth_factor = 1.0;
 	solver_->reset_loss_sum();
-	const double c_highway_run_time = 10.0; // this is a function of the patience requirement of the user
+	const double c_highway_run_time = 40.0; // this is a function of the patience requirement of the user
 	const double c_intersection_run_time = 6.0;
 	const double c_base_run_time = 2.0;
 	double run_time = c_highway_run_time;
@@ -876,8 +877,8 @@ void NetGen::Init() {
 	int num_nodes_in_last_layer = config.num_output_nodes(); 
 	vector<int> ip_layer_idx_arr;
 	vector<int> num_nodes_in_layer;
-	num_nodes_in_layer.push_back(3200); //core start 10 or 5
-	num_nodes_in_layer.push_back(960); // core start 3  
+	num_nodes_in_layer.push_back(1000); //core start 10 or 5
+	num_nodes_in_layer.push_back(300); // core start 3  
 	const float c_start_lr = 0.01; // reasonab;e start 0.01
 	const float c_lr_mod_factor = 1.2f;
 	float lr = c_start_lr;
@@ -1182,7 +1183,7 @@ int main(int argc, char** argv) {
 	::google::InitGoogleLogging(argv[0]);
   
 	
-	NetGen generator("/devlink/caffe/data/NetGen/DepValid/data/config.prototxt");
+	NetGen generator("/devlink/caffe/data/NetGen/RootPOSPredict/data/config.prototxt");
 	vector<shared_ptr<NGNet> > nets;
 	generator.PreInit();
 	generator.Init();

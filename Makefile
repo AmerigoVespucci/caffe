@@ -385,6 +385,8 @@ ifeq ($(MAIN_TO_BUILD), CAFFE_MAIN)
     CXXFLAGS += -DCAFFE_MAIN
 else ifeq ($(MAIN_TO_BUILD), NETGEN)
    CXXFLAGS += -DCAFFE_NET_GEN_MAIN   
+else ifeq ($(MAIN_TO_BUILD), MULTINET)
+   CXXFLAGS += -DCAFFE_MULTINET_MAIN   
 endif
 
 # Complete build flags.
