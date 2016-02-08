@@ -72,6 +72,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenData.pb.cc</in>
+              <in>GenData.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -164,6 +166,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenData.pb.cc</in>
+              <in>GenData.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -256,6 +260,8 @@
             <df name="layers">
             </df>
             <df name="proto">
+              <in>GenData.pb.cc</in>
+              <in>GenData.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -441,6 +447,7 @@
             <in>signal_handler.h</in>
             <in>upgrade_proto.hpp</in>
           </df>
+          <in>GenData.hpp</in>
           <in>GenSeed.pb.h</in>
           <in>blob.hpp</in>
           <in>caffe.hpp</in>
@@ -681,6 +688,7 @@
             <in>signal_handler.cpp</in>
             <in>upgrade_proto.cpp</in>
           </df>
+          <in>GenDef.cpp</in>
           <in>blob.cpp</in>
           <in>common.cpp</in>
           <in>data_reader.cpp</in>
@@ -742,8 +750,6 @@
         <gdb_interceptlist>
           <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
         </gdb_interceptlist>
-        <gdb_signals>
-        </gdb_signals>
         <gdb_options>
           <DebugOptions>
           </DebugOptions>

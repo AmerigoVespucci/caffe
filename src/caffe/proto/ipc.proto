@@ -6,7 +6,7 @@ message CaffeIpc {
 		PREDICT_RESULT = 4;
 		END_NET = 5;
 	}
-
+ 
     required MsgType type = 1;
 
 	message InitNetParams {

@@ -1,0 +1,95 @@
+message CaffeGenData {
+	required string name = 1;
+	enum IterateType {
+		ITERATE_WORD = 1;
+		ITERATE_REC = 2;
+		ITERATE_DEP = 3;
+	}
+	required IterateType iterate_type = 2;
+	enum DataSrc {
+		DATA_SRC_BOOKS = 1;
+	}
+	required DataSrc data_src = 3;
+	enum FieldType {
+		FIELD_TYPE_WORD = 1;
+		FIELD_TYPE_WORD_CORE = 2;
+		FIELD_TYPE_POS = 3;
+		FIELD_TYPE_WID = 4; // WID is the ID of the word in the sentence record
+		FIELD_TYPE_RWID = 5; // RWID includes bith the Record ID and the WID
+		FIELD_TYPE_DEP_NAME = 6; 
+		FIELD_TYPE_GOV_WID = 7; // the WID pointed to by a dep record
+		FIELD_TYPE_DEP_WID = 8;
+		FIELD_TYPE_GOV_RWID = 9;
+		FIELD_TYPE_DEP_RWID = 10;
+		FIELD_TYPE_RDID = 11; // RDID is the Record ID plus the ID (index number) in the dep record list of the sentence record
+		FIELD_TYPE_GOV_RDID = 12; // just RDID with :g attached
+		FIELD_TYPE_DEP_RDID = 13; 
+		FIELD_TYPE_GOV_WORD = 14; // not in use right now. requires two stage
+		FIELD_TYPE_DEP_WORD = 15; // "
+		FIELD_TYPE_DEP_NAME_G = 16; // just dep name with :g attached
+		FIELD_TYPE_DEP_NAME_D = 17; // just dep name with :d attached
+		FIELD_TYPE_INVALID = 31; 
+	}
+	message DataField {
+		required string var_name = 1;
+		//required string field_name = 2;
+		required FieldType field_type = 3;
+	}
+	repeated DataField data_fields = 4;
+	enum DataTranslateType {
+		DATA_TRANSLATE_RWID_TO_WORD = 1;
+		DATA_TRANSLATE_RWID_TO_COREF = 2;
+		DATA_TRANSLATE_RWID_TO_RDID = 3;
+		DATA_TRANSLATE_RDID_TO_DEP_NAME = 4;
+		DATA_TRANSLATE_RDID_TO_GOV_RWID = 5;
+		DATA_TRANSLATE_RDID_TO_DEP_RWID = 6;
+	}
+	message DataTranslate {
+		required DataTranslateType translate_type = 1;
+		required string var_name = 2;
+		//optional string iter_type = 3;
+		required string match_name = 4;
+		//optional string match_field_name = 5;
+		optional FieldType field_type = 6; // used when translating to WORD to specify which, i.e. WORD, POS etc.
+	}
+	repeated DataTranslate data_translates = 5;
+	message FieldTranslate {
+		optional string var_name = 1;
+		required string table_name = 2;
+		optional bool b_can_replace = 3;
+		optional int32 max_instances = 4;
+		// 0 - 1 propability of replacing another record if the max_instances has been exceeded
+		// needed for making sure all source files participate in high usage examples and not 
+		// only first and last
+		optional float replace_prob = 5; 
+	}
+	repeated FieldTranslate input_field_translates = 6;
+	repeated FieldTranslate output_field_translates = 7;
+	required string files_core_dir = 8;
+	required string test_list_file_name = 9;
+	required string train_list_file_name = 10;
+	enum NetEndType {
+		END_VALID = 1; // end will be yes or no
+		END_ONE_HOT = 2; // output of hd5 will be an integer but matched in net by as many nodes as the highest integer
+		END_MULTI_HOT = 3; // output in hd5 file looks the same as net output layer
+	}
+	required NetEndType net_end_type = 11;
+	required string proto_file_name = 12;
+	required string model_file_name = 13;
+	required string config_file_name = 14;
+	optional int32 num_accuracy_candidates = 15; // passed right on to caffe's config. Only relevant for some EndTypes
+	//required string glove_vec_file_name = 16; // must be replaced by a proper table creation schema
+	message DataFilter {
+		required string var_name = 2;
+		required string match_string = 4;
+	}
+	repeated DataFilter data_filters = 17;
+	required string vec_tbls_core_path = 18;
+	message VecTbl {
+		required string name = 1;
+		required string path = 2;
+	}
+	repeated VecTbl vec_tbls = 19;
+	required string dep_name_vec_tbl = 20; // needed for the DataTranslate messsages. e.g. for RWID to RDID
+}
+  

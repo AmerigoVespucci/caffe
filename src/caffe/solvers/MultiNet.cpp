@@ -10,7 +10,11 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <boost/filesystem.hpp>
 #include "H5Cpp.h"
+
+#include "caffe/proto/GenData.pb.h"
+#include "caffe/GenData.hpp"
 
 #ifndef H5_NO_NAMESPACE
     using namespace H5;
@@ -18,8 +22,18 @@
 
 using namespace caffe;  // NOLINT(build/namespaces)
 using std::string;
+namespace fs = boost::filesystem;
+
 
 typedef unsigned long long u64;
+
+struct SModelData {
+	NetGenInitData* NetGenData;
+	string model_file_name_;
+	string trained_file_name_;
+	string input_layer_name_ ;
+	string output_layer_name_;
+};
 
 class SingleNet {
 public:
@@ -73,6 +87,8 @@ public:
 				const string& word_vector_file_name);
 
 	bool  Classify();
+
+	vector<SModelData> model_data_arr_;
 
 private:
 
@@ -152,7 +168,6 @@ Blob<float>* SingleNet::GetVec(bool b_top, int layer_idx, int branch_idx)
 	}
 }
 
-
 void MultiNet::PreInit()
 {
 #ifdef CPU_ONLY
@@ -160,6 +175,42 @@ void MultiNet::PreInit()
 #else
 	Caffe::set_mode(Caffe::GPU);
 #endif
+	
+	string sModelDir = "/devlink/caffe/models/NetGen";
+	
+	fs::directory_iterator end_iter;
+	
+	if ( fs::exists(sModelDir) && fs::is_directory(sModelDir)) {
+		for( fs::directory_iterator dir_iter(sModelDir) ; dir_iter != end_iter ; ++dir_iter)	{
+			if (fs::is_regular_file(dir_iter->status()) ) {
+				if (dir_iter->path().extension() == ".prototxt") {
+					std::cerr << dir_iter->path() << std::endl;
+					model_data_arr_.push_back(SModelData());
+					SModelData& model_data = model_data_arr_.back();
+					
+					NetGenInitData * init_data = new NetGenInitData;
+
+					if (!GenDataModelInit(dir_iter->path().c_str(), init_data)) {
+						delete init_data;
+						return;
+					}
+					model_data.NetGenData = init_data;
+					// extract these from the actual model!!!
+					model_data.input_layer_name_ = "data";
+					model_data.output_layer_name_ = "squash3";
+					model_data.model_file_name_ = init_data->gen_data->files_core_dir() + init_data->gen_data->proto_file_name();
+					model_data.trained_file_name_ = init_data->gen_data->files_core_dir() + init_data->gen_data->model_file_name();
+
+				}
+				
+			}
+		}
+		
+//    {
+//      result_set.insert(result_set_t::value_type(fs::last_write_time(dir_iter->path()), *dir_iter));
+//    }
+//  }
+	}
 }
 
 void MultiNet::Init(	vector<SingleNet>& nets,
@@ -172,11 +223,44 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 	words_per_input_ = 1;
 	words_per_input_ = 4;
 	
+	vector<CorefRec> CorefSoFar;
+	vector<SSentenceRec> SentenceList(1);
+	vector<DataAvailType> CorefAvail;
+	vector<SSentenceRecAvail> SentenceAvailList(1);
+	SSentenceRec& SRec = SentenceList[0];
+	SRec.OneWordRec.push_back(WordRec());
+	SRec.Deps.push_back(DepRec());
+	DepRec& InitDep = SRec.Deps.back();
+	InitDep.iDep = 0;
+
+	SSentenceRecAvail& SRecAvail = SentenceAvailList[0];
+	SRecAvail.WordRecs.push_back(SWordRecAvail());
+	SRecAvail.Deps.push_back(SDepRecAvail());
+	SDepRecAvail& DepAvail = SRecAvail.Deps.back();
+	DepAvail.iDep = datConst;
+	
+	
 	p_nets_ = &nets;
 	
 	for (int in = 0; in < nets.size(); in++) {
+		SModelData& model_data = model_data_arr_[in];
+
+		vector<pair<int, int> > InputTranslateTbl;
+		vector<pair<int, int> > OutputTranslateTbl;
+		vector<SDataForVecs > DataForVecs;
+		int NumOutputNodesNeeded = -1;
+
+		if (!GenDataModelApply(	InputTranslateTbl, OutputTranslateTbl,
+								DataForVecs, NumOutputNodesNeeded,
+								SentenceList, CorefSoFar, 
+								SentenceAvailList, CorefAvail,
+								model_data.NetGenData)) {
+			return;
+		}
+
 		SingleNet& net = nets[in];
 		net.Init();
+		
 	}
 
 	
@@ -443,6 +527,12 @@ int main(int argc, char** argv) {
 	MultiNet classifier;
 	classifier.PreInit();
 	vector<SingleNet> nets;
+	for (int isn=0; isn < classifier.model_data_arr_.size(); isn++) {
+		SModelData& model_data = classifier.model_data_arr_[isn];
+		nets.push_back(SingleNet(	model_data.model_file_name_, model_data.trained_file_name_, 
+									model_data.input_layer_name_, model_data.output_layer_name_));
+	}
+#if 0
 	nets.push_back(SingleNet(
 		"/home/abba/caffe-recurrent/toys/WordEmbed/VecPredict/train.prototxt",
 		"/devlink/caffe/data/WordEmbed/VecPredict/models/v_iter_83869.caffemodel",
@@ -451,6 +541,7 @@ int main(int argc, char** argv) {
 		"/devlink/caffe/data/NetGen/GramPosValid/models/train.prototxt",
 		"/devlink/caffe/data/NetGen/GramPosValid/models/g_best.caffemodel",
 		"data", "squash3"));
+#endif // 0	
 	classifier.Init(nets,
 					word_file_name, 
 					word_vector_file_name);
