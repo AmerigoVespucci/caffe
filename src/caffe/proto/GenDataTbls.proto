@@ -1,0 +1,11 @@
+message CaffeGenDataTbls {
+	required string name = 1;
+	required string vec_tbls_core_path = 2;
+	message VecTbl {
+		required string name = 1;
+		required string path = 2;
+	}
+	repeated VecTbl vec_tbls = 3;
+	required string dep_name_vec_tbl = 4; // needed for the DataTranslate messsages. e.g. for RWID to RDID
+}
+  

@@ -14,6 +14,8 @@
 #include <sstream>
 #include <cstring>
 
+using namespace std;
+
 typedef unsigned int uint;
 typedef unsigned short ushort;
 typedef unsigned long long u64;
@@ -81,7 +83,9 @@ enum DataAvailType {
     datConst, // record has a real value
     datNotSet, 
     datVar, // value not set but linked to some other record using name of variable. Not the same as GenData variable
+    datTheOne, // used when initializing the deprec/wordrec/coref structure to find a specific new value. See gmail 12th Feb 2016
     datNotSetTooFar,
+    datInvalid, // used for return from access functions only. use datNotSet in the record itslef if the value has not been set
 };
 
 struct SWordRecAvail {
@@ -91,6 +95,13 @@ struct SWordRecAvail {
         WordCore = datNotSet;
         POS = datNotSet;
         NER = datNotSet;
+    }
+    SWordRecAvail(DataAvailType InitVal) {
+        RegionName = InitVal;
+        Word = InitVal;
+        WordCore = InitVal;
+        POS = InitVal;
+        NER = InitVal;
     }
     DataAvailType RegionName;
     DataAvailType Word;
@@ -106,6 +117,11 @@ struct SDepRecAvail {
         Gov = datNotSet;
         Dep = datNotSet;
     }
+    SDepRecAvail(DataAvailType InitVal) {
+        iDep = InitVal;
+        Gov = InitVal;
+        Dep = InitVal;
+    }
     DataAvailType iDep;
     DataAvailType Gov;
     DataAvailType Dep;
@@ -120,36 +136,18 @@ struct SVarCntrlEl {
     DataAvailType SrcStatus;
 };
 
-struct NetGenInitData {
-        NetGenInitData() {
-            gen_data = NULL;
-        }
-        ~NetGenInitData() {
-            if (gen_data != NULL) {
-                delete gen_data;
-            }
-            for (int i=0; i < TranslateTblPtrs.size(); i++) {
-                std::map<std::string, int>* p = TranslateTblPtrs[i];
-                if (p != NULL) {
-                    delete p;
-                }
-            }
-            for (int i=0; i < VecTblPtrs.size(); i++) {
-                std::vector<std::vector<float> >* p = VecTblPtrs[i];
-                if (p != NULL) {
-                    delete p;
-                }
-            }
-        }
-
-	CaffeGenData* gen_data;
-	//CaffeGenSeed* gen_seed_config;
-	int NumVecTbls;
-	std::vector<std::map<std::string, int>*> TranslateTblPtrs;
-	std::vector<std::vector<std::vector<float> >* > VecTblPtrs;
-	std::map<std::string, int> TranslateTblNameMap;
-	std::vector<std::string> DepNames;
-	int YesNoTblIdx;
+struct SDataForVecs {
+    SDataForVecs(int aiRandom, std::vector<int>& aIData, bool abValid, std::vector<int>& aOData) {
+        iRandom = aiRandom;
+        IData  = aIData;
+        bValid  = abValid;
+        OData  = aOData;
+    }
+    int iRandom;
+    std::vector<int> IData;
+    bool bValid;
+    std::vector<int> OData;
+    static bool SortFn (const SDataForVecs& i,const SDataForVecs j) { return (i.iRandom<j.iRandom); }
 };
 
 enum DataTranslateEntryType {
@@ -168,34 +166,161 @@ struct SDataTranslateEntry {
         CaffeGenData_FieldType TargetTblOutputIdx; // idx of field in target table to output
 };
 
-struct SDataForVecs {
-    SDataForVecs(int aiRandom, std::vector<int>& aIData, bool abValid, std::vector<int>& aOData) {
-        iRandom = aiRandom;
-        IData  = aIData;
-        bValid  = abValid;
-        OData  = aOData;
-    }
-    int iRandom;
-    std::vector<int> IData;
-    bool bValid;
-    std::vector<int> OData;
-    static bool SortFn (const SDataForVecs& i,const SDataForVecs j) { return (i.iRandom<j.iRandom); }
+
+class CGenModelRun;
+class CGenDef;
+
+class CGenDefTbls {
+	friend CGenModelRun;
+	friend CGenDef;
+public:	
+    CGenDefTbls(string& sModelProtoName);
+	~CGenDefTbls() {
+        for (int i=0; i < TranslateTblPtrs.size(); i++) {
+            std::map<std::string, int>* p = TranslateTblPtrs[i];
+            if (p != NULL) {
+                delete p;
+            }
+        }
+        for (int i=0; i < VecTblPtrs.size(); i++) {
+            std::vector<std::vector<float> >* p = VecTblPtrs[i];
+            if (p != NULL) {
+                delete p;
+            }
+        }
+		
+	}
+    
+    vector<vector<vector<float> >* >& getVecTblPtrs() { return VecTblPtrs; }
+    vector<map<string, int>*>& getTranslateTblPtrs() { return TranslateTblPtrs; }
+    vector<string>& getDepNamesTbl() { return DepNames; };
+
+    bool bInitDone;
+    
+private:    
+    std::vector<std::map<std::string, int>*> TranslateTblPtrs;
+    std::vector<std::vector<std::vector<float> >* > VecTblPtrs;
+    std::map<std::string, int> TranslateTblNameMap;
+    vector<string> DepNames;
+    
 };
+
+class CGenDef {
+    friend CGenModelRun;
+    
+public:
+    CGenDef(CGenDefTbls * apGenDefTbls, bool abYouOwnTblsData) :
+//			std::vector<std::map<std::string, int>*> aTranslateTblPtrs,
+//			std::vector<std::vector<std::vector<float> >* > aVecTblPtrs,
+//			std::map<std::string, int> aTranslateTblNameMap,
+//			vector<string> aDepNames) :
+			TranslateTblPtrs(apGenDefTbls->TranslateTblPtrs), 
+			VecTblPtrs(apGenDefTbls->VecTblPtrs),
+			TranslateTblNameMap(apGenDefTbls->TranslateTblNameMap),
+			DepNames(apGenDefTbls->DepNames)
+					
+	{
+        gen_data = NULL;
+		pGenDefTbls = apGenDefTbls;
+		bYouOwnTblsData = abYouOwnTblsData;
+		
+        //test = atest;
+    }
+    ~CGenDef() {
+        if (gen_data != NULL) {
+            delete gen_data;
+        }
+		if (bYouOwnTblsData) {
+			delete pGenDefTbls;
+		}
+    }
+    bool ModelInit(string sModelProtoName);
+    bool ModelPrep();
+    CaffeGenData* getGenData() {return gen_data; }
+    vector<pair<int, int> >& getInputTranslateTbl() { return InputTranslateTbl; }
+    vector<pair<int, int> >& getOutputTranslateTbl() { return OutputTranslateTbl; }
+    vector<vector<vector<float> >* >& getVecTblPtrs() { return VecTblPtrs; }
+    vector<map<string, int>*>& getTranslateTblPtrs() { return TranslateTblPtrs; }
+    vector<string>& getDepNamesTbl() { return DepNames; };
+    bool setReqTheOneOutput(int& OutputTheOneIdx) ;
+    int getNumOutputNodesNeeded() { return NumOutputNodesNeeded; }
+//    void DoTest(int atest) {
+//        test = atest;
+//    }
+private:
+    CaffeGenData* gen_data;
+	CGenDefTbls * pGenDefTbls;
+	bool bYouOwnTblsData;
+    //CaffeGenSeed* gen_seed_config;
+    int NumVecTbls;// remove
+    std::vector<std::map<std::string, int>*>& TranslateTblPtrs;
+    std::vector<std::vector<std::vector<float> >* >& VecTblPtrs;
+    std::map<std::string, int>& TranslateTblNameMap;
+    vector<string>& DepNames;
+    int YesNoTblIdx; // remove
+    std::vector<std::pair<int, int> > InputTranslateTbl;
+    std::vector<std::pair<int, int> > OutputTranslateTbl;
+    int NumOutputNodesNeeded;
+    vector<pair<CaffeGenData_FieldType, int> > FirstAccessFieldsIdx; 
+    map<string, int> VarNamesMap;
+    vector<SDataTranslateEntry> DataTranslateTbl; 
+    vector<pair<int, string> > DataFilterTbl;
+    vector<bool> ICanReplaceTbl;
+    vector<bool> OCanReplaceTbl;
+    // Num number of instances of that word in that data field
+    // one for in and one for out
+    // combining old and vew arrays
+    // indexed the same as the translate tbl
+    vector<vector<int> > NumInstancesTbl[2];
+    vector<int> MaxInstancesTbl[2];
+    bool bCanReplace;
+
+
+
+};
+
+class CGenModelRun {
+public:
+    CGenModelRun(   CGenDef& aGenDef,
+                    std::vector<SSentenceRec>& aSentenceRec,
+                    std::vector<CorefRec>& aCorefList,
+                    std::vector<SSentenceRecAvail>& aSentenceAvailList,
+                    std::vector<DataAvailType>& aCorefAvail) :
+        GenDef(aGenDef), SentenceRec(aSentenceRec), CorefList(aCorefList),
+        SentenceAvailList(aSentenceAvailList), CorefAvail(aCorefAvail) {
+            OutputTheOneIdx = -1;
+            bReqTheOneOutput = false;
+    }
+    
+    bool DoRun();
+    vector<SDataForVecs >& getDataForVecs() { return DataForVecs; }
+    void setReqTheOneOutput() ;
+    
+private:
+    string  GetDepRecField(	int SRecID, int DID, CaffeGenData_FieldType FieldID, 
+                                DataAvailType& RetAvail, bool bUseAvail) ;
+    string GetRecFieldByIdx(int SRecID, int WID, 
+                            CaffeGenData_FieldType FieldID, 
+                            DataAvailType& RetAvail, bool bUseAvail);
+
+    CGenDef& GenDef;
+    std::vector<SSentenceRec>& SentenceRec; 
+    std::vector<CorefRec>& CorefList;
+    std::vector<SSentenceRecAvail>& SentenceAvailList; 
+    std::vector<DataAvailType>& CorefAvail;        
+    std::vector<SDataForVecs > DataForVecs;
+    bool bReqTheOneOutput;
+    int OutputTheOneIdx;
+   
+};
+
 
 std::string GetRecFieldByIdx(int SRecID, int WID, WordRec& rec, 
                             CaffeGenData_FieldType FieldID, bool& bRetValid);
 std::string GetDepRecFieldByIdx( int SRecID, int DID, std::vector<std::string>& DepNames, DepRec& rec, 
                                 CaffeGenData_FieldType FieldID, bool& bRetValid);
-bool GenDataModelInit(std::string sModelProtoName, NetGenInitData * InitData );
-bool GenDataModelApply(	std::vector<std::pair<int, int> >& InputTranslateTbl, 
-                        std::vector<std::pair<int, int> >& OutputTranslateTbl,
-                        std::vector<SDataForVecs >& DataForVecs,
-                        int& NumOutputNodesNeeded,
-                        std::vector<SSentenceRec>& SentenceRec, 
-                        std::vector<CorefRec>& CorefList, 
-                        std::vector<SSentenceRecAvail>& SentenceAvailList, 
-                        std::vector<DataAvailType>& CorefAvail, 
-                        NetGenInitData * InitData);
+bool GenDataModelInit(std::string sModelProtoName, CGenDef * InitData );
+
 
 #endif /* GENDATA_HPP */
 

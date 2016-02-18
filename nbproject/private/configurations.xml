@@ -74,6 +74,10 @@
             <df name="proto">
               <in>GenData.pb.cc</in>
               <in>GenData.pb.h</in>
+              <in>GenDataTbls.pb.cc</in>
+              <in>GenDataTbls.pb.h</in>
+              <in>GenOutput.pb.cc</in>
+              <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -168,6 +172,10 @@
             <df name="proto">
               <in>GenData.pb.cc</in>
               <in>GenData.pb.h</in>
+              <in>GenDataTbls.pb.cc</in>
+              <in>GenDataTbls.pb.h</in>
+              <in>GenOutput.pb.cc</in>
+              <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -262,6 +270,10 @@
             <df name="proto">
               <in>GenData.pb.cc</in>
               <in>GenData.pb.h</in>
+              <in>GenDataTbls.pb.cc</in>
+              <in>GenDataTbls.pb.h</in>
+              <in>GenOutput.pb.cc</in>
+              <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>
               <in>GenSeed.pb.h</in>
               <in>caffe.pb.cc</in>
@@ -750,6 +762,8 @@
         <gdb_interceptlist>
           <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
         </gdb_interceptlist>
+        <gdb_signals>
+        </gdb_signals>
         <gdb_options>
           <DebugOptions>
           </DebugOptions>

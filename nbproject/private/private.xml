@@ -12,12 +12,9 @@
         <group>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/MultiNet.cpp</file>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/NetGen.cpp</file>
-            <file>file:/home/eli/dev/caffe/src/caffe/GenDef.cpp</file>
             <file>file:/home/eli/dev/caffe/tools/caffe.cpp</file>
             <file>file:/home/eli/dev/caffe/include/caffe/GenData.hpp</file>
-            <file>file:/home/eli/dev/caffe/.build_debug/src/caffe/proto/GenData.pb.h</file>
             <file>file:/home/eli/dev/caffe/Makefile.config</file>
-            <file>file:/home/eli/dev/caffe/Makefile</file>
         </group>
     </open-files>
 </project-private>

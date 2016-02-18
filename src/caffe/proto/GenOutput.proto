@@ -1,0 +1,8 @@
+message CaffeGenOutput {
+	required int32 num_input_nodes = 1;
+	required int32 num_output_nodes = 2;
+	required int32 input_layer_idx = 3;
+	required int32 input_layer_top_idx = 4; // the index of the top (output) blob FOR THAT layer
+	required int32 output_layer_idx = 5;
+	required int32 output_layer_top_idx = 6;
+}

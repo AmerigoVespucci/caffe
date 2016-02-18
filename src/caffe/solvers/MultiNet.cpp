@@ -1,4 +1,8 @@
 #include <cstdlib>
+#include <fcntl.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
 #include <caffe/caffe.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -28,7 +32,7 @@ namespace fs = boost::filesystem;
 typedef unsigned long long u64;
 
 struct SModelData {
-	NetGenInitData* NetGenData;
+	CGenDef* NetGenData;
 	string model_file_name_;
 	string trained_file_name_;
 	string input_layer_name_ ;
@@ -63,6 +67,7 @@ public:
 	}
 	int input_layer_dim() { return input_layer_dim_; }
 	int input_layer_idx() { return input_layer_idx_; }
+	int output_layer_dim() { return output_layer_dim_; }
 	
 private:
 	shared_ptr<Net<float> > net_;
@@ -75,11 +80,15 @@ private:
 	string input_layer_name_ ;
 	string output_layer_name_;
 	int input_layer_dim_;
+	int output_layer_dim_;
 };
 
 class MultiNet {
 public:
-	MultiNet() {bInit_ = false; }
+	MultiNet(string a_data_core_dir) {
+		data_core_dir_ = a_data_core_dir;
+		bInit_ = false; 
+	}
 
 	void PreInit();
 	void Init(	vector<SingleNet>& nets,
@@ -87,6 +96,7 @@ public:
 				const string& word_vector_file_name);
 
 	bool  Classify();
+	bool  PredictTheOne(int inet);
 
 	vector<SModelData> model_data_arr_;
 
@@ -107,12 +117,177 @@ private:
 	vector<vector<float> > words_vecs_;
 	string word_vector_file_name_;
 	int words_per_input_;
+	CGenDefTbls * tbls_data_;
+	string data_core_dir_;
 	
 	int GetClosestWordIndex(vector<float>& VecOfWord, int num_input_vals, 
 							vector<pair<float, int> >& SortedBest,
-							int NumBestKept);
+							int NumBestKept, vector<vector<float> >& lookup_vecs,
+							int RandFactor = 100);
 
 };
+
+class CGenGen {
+public:
+    CGenGen(vector<SSentenceRec>& aSentenceRec,
+			vector<CorefRec>& aCorefList,
+			vector<SSentenceRecAvail>& aSentenceAvailList,
+			vector<DataAvailType>& aCorefAvail,
+			vector<string>& aDepNames) :
+		SentenceRec(aSentenceRec), CorefList(aCorefList),
+        SentenceAvailList(aSentenceAvailList), CorefAvail(aCorefAvail),
+		DepNames(aDepNames) {
+    }
+    
+	void DoGen(string& data_core_dir);
+    
+private:
+
+    vector<SSentenceRec>& SentenceRec; 
+    vector<CorefRec>& CorefList;
+    vector<SSentenceRecAvail>& SentenceAvailList; 
+    vector<DataAvailType>& CorefAvail;  
+	vector<string>& DepNames;
+};
+
+template <typename T>
+string gen_multinet_to_string ( T Number )
+{
+	ostringstream ss;
+	ss << Number;
+	return ss.str();
+}
+
+
+void CGenGen::DoGen(string& data_core_dir) {
+	string gen_name = string("gengen") + gen_multinet_to_string(time(NULL));
+	CaffeGenData gen_data;
+	gen_data.set_name(gen_name);
+	gen_data.set_iterate_type(CaffeGenData::ITERATE_DEP);
+	gen_data.set_data_src(CaffeGenData::DATA_SRC_BOOKS);
+	gen_data.set_files_core_dir(data_core_dir + string("NetGen/") + gen_name + "/");
+	gen_data.set_test_list_file_name("data/test");
+	gen_data.set_train_list_file_name("data/train");
+	gen_data.set_net_end_type(CaffeGenData::END_ONE_HOT);
+	gen_data.set_proto_file_name("models/train.prototxt");
+	gen_data.set_model_file_name("models/g_best.caffemodel");
+	gen_data.set_config_file_name("data/config.prototxt");
+	gen_data.set_netgen_output_file_name("models/netgen_output.prototxt");
+	gen_data.set_num_accuracy_candidates(1);
+//	gen_data.set_vec_tbls_core_path("/devlink/caffe/data/tables/");
+//	CaffeGenData::VecTbl * vec_tbl = gen_data.add_vec_tbls();
+//	vec_tbl->set_name("DepVecTbl");
+//	vec_tbl->set_path("DepOneHot");
+//	vec_tbl = gen_data.add_vec_tbls();
+//	vec_tbl->set_name("POSVecTbl");
+//	vec_tbl->set_path("POSOneHot");
+//	vec_tbl = gen_data.add_vec_tbls();
+//	vec_tbl->set_name("POSNumTbl");
+//	vec_tbl->set_path("POSNum");
+//	gen_data.set_dep_name_vec_tbl("DepVecTbl");
+	int iVarName = 0;
+	vector<pair<string, string> > InputFields;
+	for (int irec = 0; irec < SentenceRec.size(); irec++) {
+		vector<DepRec>& deps = SentenceRec[irec].Deps;
+		for (int iidep = 0; iidep < deps.size(); iidep++) {
+			string sVarName = string("DepType") 
+					+ gen_multinet_to_string(iVarName++);
+			CaffeGenData::DataField * data_field = gen_data.add_data_fields();
+			data_field->set_var_name(sVarName);
+			data_field->set_field_type(CaffeGenData::FIELD_TYPE_DEP_NAME);
+			if (SentenceAvailList[irec].Deps[iidep].iDep == datConst) {
+				int iDepType = (int)(signed char)(deps[iidep].iDep);
+				InputFields.push_back(make_pair(sVarName, "DepVecTbl")); // because we are iterating dep recs
+				if ((iDepType < 0) || (iDepType >= DepNames.size())) {
+					continue;
+				}
+				string& DepTypeName = DepNames[iDepType];
+				CaffeGenData::DataFilter * data_filter = gen_data.add_data_filters();
+				data_filter->set_var_name(sVarName);
+				data_filter->set_match_string(DepTypeName);
+			}
+			else if (SentenceAvailList[irec].Deps[iidep].iDep == datTheOne) {
+				CaffeGenData::FieldTranslate * field_translate 
+						= gen_data.add_output_field_translates();
+				field_translate->set_var_name(sVarName);
+				field_translate->set_table_name("DepNum"); // because the putput is a dep name but its one hot so we use a num tbl
+			}
+			else {
+				continue;
+			}
+			if (	(deps[iidep].Dep != -1) 
+				&&	(SentenceAvailList[irec].Deps[iidep].Dep == datConst)) {
+				
+				sVarName = string("Dep") 
+						+ gen_multinet_to_string(iVarName++);
+				data_field = gen_data.add_data_fields();
+				data_field->set_var_name(sVarName);
+				data_field->set_field_type(CaffeGenData::FIELD_TYPE_DEP_RWID);
+				int WID = (int)(signed char)deps[iidep].Dep;
+				
+				CaffeGenData::DataTranslate * data_translate = gen_data.add_data_translates();
+				data_translate->set_translate_type(CaffeGenData::DATA_TRANSLATE_RWID_TO_WORD);
+				data_translate->set_match_name(sVarName);
+				sVarName = string("POS") 
+					+ gen_multinet_to_string(iVarName++);
+				data_translate->set_var_name(sVarName);
+				data_translate->set_field_type(CaffeGenData::FIELD_TYPE_POS);
+				SentenceRec[irec].OneWordRec[WID].POS;
+				DataAvailType dat = SentenceAvailList[irec].WordRecs[WID].POS;
+				if (dat == datConst) {
+					
+				}
+				else if (dat == datTheOne) {
+					CaffeGenData::FieldTranslate * field_translate 
+							= gen_data.add_output_field_translates();
+					// sVarNum should still hold the var name of the data translate on this
+					// branch of the if
+					field_translate->set_var_name(sVarName);
+					field_translate->set_table_name("POSNumTbl"); // integer output tables for POS, which is what we're looking for
+				}
+			}
+
+		}
+	}
+	
+	for (int iin = 0; iin < InputFields.size(); iin++) {
+		CaffeGenData::FieldTranslate * field_translate 
+				= gen_data.add_input_field_translates();
+		field_translate->set_var_name(InputFields[iin].first);
+		field_translate->set_table_name(InputFields[iin].second); // integer output tables for POS, which is what we're looking for
+	}
+	const string ProtoCoreDir = data_core_dir + "GenGen/";
+	const string fname = ProtoCoreDir + gen_name + ".prototxt";
+	ofstream gengen_ofs(fname.c_str());
+	google::protobuf::io::OstreamOutputStream* gengen_output 
+		= new google::protobuf::io::OstreamOutputStream(&gengen_ofs);
+	//ofstream f_config(ConfigFileName); // I think this one is wrong
+	if (gengen_ofs.is_open()) {
+		google::protobuf::TextFormat::Print(gen_data, gengen_output);
+		
+	}
+	delete gengen_output;
+
+	const string NetGenCoreDir = data_core_dir + "NetGen/";
+	const string dname = NetGenCoreDir + gen_name;
+	fs::path dir(dname);
+	if (!fs::create_directory(fs::path (dname))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+	const string dname_models = dname + "/models";
+	if (!fs::create_directory(fs::path (dname_models))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+	const string dname_data = dname + "/data";
+	if (!fs::create_directory(fs::path (dname_data))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+	
+}
+
 
 void SingleNet::Init(	) {
 
@@ -154,6 +329,8 @@ void SingleNet::Init(	) {
 		LOG(FATAL) << "Unknown layer name " << output_layer_name_;			
 	}
 	output_layer_idx_ = output_layer_idx;
+	Blob<float>* output_layer = net_->top_vecs()[output_layer_idx_][output_layer_top_idx_];
+	output_layer_dim_ = output_layer->shape(1);
 	
 	
 }
@@ -176,7 +353,16 @@ void MultiNet::PreInit()
 	Caffe::set_mode(Caffe::GPU);
 #endif
 	
-	string sModelDir = "/devlink/caffe/models/NetGen";
+	string sModelDir = data_core_dir_ + "GenGen";
+	string sTblModelsFile = "/TblDefs/tbls.prototxt";
+	const bool cb_model_owns_tbls = true;
+	
+	string fname = sModelDir + sTblModelsFile;
+	tbls_data_ = new CGenDefTbls (fname);
+	if (!tbls_data_->bInitDone) {
+		cerr << "Failed to initialize tables def file. Terminating.\n";
+		return;
+	}
 	
 	fs::directory_iterator end_iter;
 	
@@ -188,9 +374,10 @@ void MultiNet::PreInit()
 					model_data_arr_.push_back(SModelData());
 					SModelData& model_data = model_data_arr_.back();
 					
-					NetGenInitData * init_data = new NetGenInitData;
+					CGenDef * init_data = new CGenDef(tbls_data_, !cb_model_owns_tbls);
 
-					if (!GenDataModelInit(dir_iter->path().c_str(), init_data)) {
+					if (	!init_data->ModelInit(dir_iter->path().c_str()) 
+						||	!init_data->ModelPrep()) {
 						delete init_data;
 						return;
 					}
@@ -198,8 +385,8 @@ void MultiNet::PreInit()
 					// extract these from the actual model!!!
 					model_data.input_layer_name_ = "data";
 					model_data.output_layer_name_ = "squash3";
-					model_data.model_file_name_ = init_data->gen_data->files_core_dir() + init_data->gen_data->proto_file_name();
-					model_data.trained_file_name_ = init_data->gen_data->files_core_dir() + init_data->gen_data->model_file_name();
+					model_data.model_file_name_ = init_data->getGenData()->files_core_dir() + init_data->getGenData()->proto_file_name();
+					model_data.trained_file_name_ = init_data->getGenData()->files_core_dir() + init_data->getGenData()->model_file_name();
 
 				}
 				
@@ -231,39 +418,119 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 	SRec.OneWordRec.push_back(WordRec());
 	SRec.Deps.push_back(DepRec());
 	DepRec& InitDep = SRec.Deps.back();
-	InitDep.iDep = 0;
+	InitDep.iDep = 0; // root
+	InitDep.Gov = (uchar)-1;
+	InitDep.Dep = 0; // first word rec
+	WordRec& InitWRec = SRec.OneWordRec.back();
+	InitWRec.POS = "";
 
 	SSentenceRecAvail& SRecAvail = SentenceAvailList[0];
-	SRecAvail.WordRecs.push_back(SWordRecAvail());
+	SRecAvail.WordRecs.push_back(SWordRecAvail(datNotSet));
 	SRecAvail.Deps.push_back(SDepRecAvail());
 	SDepRecAvail& DepAvail = SRecAvail.Deps.back();
 	DepAvail.iDep = datConst;
+	DepAvail.Gov = datNotSet;
+	DepAvail.Dep = datConst;
+	SWordRecAvail& WRecAvail = SRecAvail.WordRecs.back();
+	WRecAvail.POS = datTheOne;
 	
 	
 	p_nets_ = &nets;
+
+	CGenGen GenGen(	SentenceList, CorefSoFar, SentenceAvailList, CorefAvail, 
+					tbls_data_->getDepNamesTbl());
+	GenGen.DoGen(data_core_dir_);
 	
 	for (int in = 0; in < nets.size(); in++) {
 		SModelData& model_data = model_data_arr_[in];
 
-		vector<pair<int, int> > InputTranslateTbl;
-		vector<pair<int, int> > OutputTranslateTbl;
-		vector<SDataForVecs > DataForVecs;
-		int NumOutputNodesNeeded = -1;
+		
+		vector<pair<int, int> >& InputTranslateTbl = model_data.NetGenData->getInputTranslateTbl();
+		vector<pair<int, int> > OutputTranslateTbl = model_data.NetGenData->getOutputTranslateTbl();
+		//int NumOutputNodesNeeded = -1;
 
-		if (!GenDataModelApply(	InputTranslateTbl, OutputTranslateTbl,
-								DataForVecs, NumOutputNodesNeeded,
-								SentenceList, CorefSoFar, 
-								SentenceAvailList, CorefAvail,
-								model_data.NetGenData)) {
+		CGenModelRun GenModelRun(	*model_data.NetGenData, SentenceList, CorefSoFar, 
+									SentenceAvailList, CorefAvail);
+		
+		GenModelRun.setReqTheOneOutput();
+
+		if (!GenModelRun.DoRun()) {
 			return;
+		}
+
+		vector<SDataForVecs >& DataForVecs = GenModelRun.getDataForVecs();
+		
+		if (DataForVecs.size() == 0) {
+			continue;
+		}
+		
+		if (DataForVecs.size() != 1) {
+			cerr << "Not clear how there could be more than one records for the one. Please investigate\n";
+			continue;
 		}
 
 		SingleNet& net = nets[in];
 		net.Init();
 		
+		vector<pair<string, vector<float> > > VecArr;
+		vector<vector<vector<float> >* >& VecTblPtrs = model_data.NetGenData->getVecTblPtrs();
+		vector<map<string, int>*>& TranslateTblPtrs = model_data.NetGenData->getTranslateTblPtrs();
+
+		Blob<float>* predict_input_layer =  net.GetInputVec();
+		Blob<float>* predict_output_layer = net.GetOutputVec();
+
+		net.PrepForInput(); // I think this loads the hdl5 data which can't be prevented
+		float* p_in = predict_input_layer->mutable_cpu_data();
+		float * ppd = p_in;
+		
+		vector<int>& IData = (DataForVecs[0].IData);
+				
+		for (int ii = 0; ii < InputTranslateTbl.size(); ii++) {
+			pair<int, int>& itt = InputTranslateTbl[ii];
+			vector<float>& vec = (*VecTblPtrs[itt.second])[IData[ii]];
+			for (int iv = 0; iv < vec.size(); iv++) {
+				*ppd++ = vec[iv];
+			}			
+		}
+		
+
+		/*float v_loss = */net.ComputeOutput();
+		const float* p_v_out = predict_output_layer->cpu_data();  
+		vector<float> VecOfOutput;
+		int NumValsInOutput = net.output_layer_dim();
+		for (int iact = 0; iact < NumValsInOutput; iact++) {
+			VecOfOutput.push_back(*p_v_out++);
+		}
+		vector<pair<float, int> > SortedBest;
+		vector<pair<float, int> > SortedBestDummy;
+		//vector<int>& OData = (DataForVecs[0].OData);
+		pair<int, int>& ott = OutputTranslateTbl[0]; // there may only be one output
+		vector<vector<float> > vec_for_one_hot;
+		vector<vector<float> >* p_lookup_vec = VecTblPtrs[ott.second];
+		if (model_data.NetGenData->getGenData()->net_end_type() == CaffeGenData::END_ONE_HOT) {
+			vector<vector<float> >& one_hot_tbl = *(VecTblPtrs[ott.second]);
+			for (int ioht = 0; ioht < one_hot_tbl.size(); ioht++) {
+				vec_for_one_hot.push_back(vector<float>(NumValsInOutput, 0.0f));
+				vector<float>& vec = vec_for_one_hot.back();
+				vec[one_hot_tbl[ioht][0]] = 1.0f;
+			}
+			p_lookup_vec = &vec_for_one_hot;
+		}
+		srand((int)time(NULL)); for (int ir=0; ir<10; ir++) rand();
+		int iMinDiffLbl = GetClosestWordIndex(VecOfOutput, NumValsInOutput,
+				SortedBestDummy, 1, *(p_lookup_vec), 100);
+		map<string, int>& SymTbl = *(TranslateTblPtrs[ott.second]);
+		map<string, int>::iterator itSymTbl = SymTbl.begin();
+		for (; itSymTbl != SymTbl.end(); itSymTbl++) {
+			if (itSymTbl->second == iMinDiffLbl) {
+				cerr << "New value: " << itSymTbl->first;
+				break;
+			}
+		}
+		
 	}
 
-	
+#if 0	
 	
 	std::ifstream str_words(word_file_name.c_str(), std::ifstream::in);
 	if (str_words.is_open() ) {
@@ -297,7 +564,7 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 		}
 	}
 	//Blob<float>*  input_bottom_vec = net_->top_vecs()[input_layer_idx][input_layer_bottom_idx_];
-	
+#endif	
 
 	bInit_ = true;
 
@@ -325,17 +592,19 @@ static std::vector<int> Argmax(const std::vector<float>& v, int N) {
 #endif // 0
 
 int  MultiNet::GetClosestWordIndex(	vector<float>& VecOfWord, int num_input_vals, 
-									vector<pair<float, int> >& SortedBest, int NumBestKept)
+									vector<pair<float, int> >& SortedBest, int NumBestKept, 
+									vector<vector<float> >& lookup_vecs, int rand_factor)
 {
 	float MinDiff = num_input_vals * 2.0f;
 	int iMinDiff = -1;
 	float ThreshDiff = MinDiff;
-	for (int iwv =0; iwv < words_vecs_.size(); iwv++ ) {
+	for (int iwv =0; iwv < lookup_vecs.size(); iwv++ ) {
 		float SumDiff = 0.0f;
 		for (int iv = 0; iv < num_input_vals; iv++) {
-			float Diff = VecOfWord[iv] - words_vecs_[iwv][iv];
+			float Diff = VecOfWord[iv] - lookup_vecs[iwv][iv];
 			SumDiff += Diff * Diff;
 		}
+		SumDiff *= (1.0f + ((float)(rand() % rand_factor)/(float)rand_factor));
 		if (SumDiff < MinDiff) {
 			MinDiff = SumDiff;
 			iMinDiff = iwv;
@@ -350,6 +619,12 @@ int  MultiNet::GetClosestWordIndex(	vector<float>& VecOfWord, int num_input_vals
 		}
 	}
 	return iMinDiff;
+}
+
+bool MultiNet::PredictTheOne(int inet) {
+	// inet - which net we will use to predict. Maybe should be in SingleNet
+	
+	return true;
 }
 
 /* Return the values in the output layer */
@@ -395,9 +670,10 @@ bool MultiNet::Classify() {
 					VecOfLabel.push_back(*p_lbl++);
 				}
 				iMinDiffLbl = GetClosestWordIndex(VecOfLabel, num_vals_per_word,
-													SortedBestDummy, 1);
+													SortedBestDummy, 1, words_vecs_);
 			}
-			int iMinDiff = GetClosestWordIndex(VecOfWord, num_vals_per_word, SortedBestDummy, 1);
+			int iMinDiff = GetClosestWordIndex(VecOfWord, num_vals_per_word, 
+												SortedBestDummy, 1, words_vecs_);
 			if (iMinDiff != -1) {
 				int word_idx = ((iw <= 1) ? iw : iw+1);
 				ngram_indices[word_idx] = iMinDiff;
@@ -427,7 +703,7 @@ bool MultiNet::Classify() {
 			VecOfWord.push_back(data);
 		}
 		int iMinDiff = GetClosestWordIndex(	VecOfWord, num_vals_per_word,
-											SortedBest, cNumBestKept);
+											SortedBest, cNumBestKept, words_vecs_);
 		if (iMinDiff != -1) {
 			std::cerr << "--> ";
 			vector <pair<float, int> > ReOrdered;
@@ -524,7 +800,7 @@ int main(int argc, char** argv) {
 	string input_layer_name = "data";
 	string output_layer_name = "SquashOutput";
 	
-	MultiNet classifier;
+	MultiNet classifier("/devlink/caffe/data/");
 	classifier.PreInit();
 	vector<SingleNet> nets;
 	for (int isn=0; isn < classifier.model_data_arr_.size(); isn++) {
@@ -545,7 +821,8 @@ int main(int argc, char** argv) {
 	classifier.Init(nets,
 					word_file_name, 
 					word_vector_file_name);
-	classifier.Classify();
+	//classifier.Classify();
 	
 }
 #endif // CAFFE_MULTINET_MAIN
+  

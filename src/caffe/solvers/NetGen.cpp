@@ -736,7 +736,7 @@ void NGNet::Gen(vector<int>& num_nodes_in_layer, int mod_idx_idx, float lr, Caff
 	num_test_cases_ = config->num_test_cases();
 	output_model_filename_ = config->model_file_name();
 	output_prototxt_filename_ = config->proto_file_name();
-	
+	 
 //	Net<float> * test_net = solver_->get_test_net();
 //	HDF5DataLayer<float> * data_layer =  dynamic_cast<HDF5DataLayer<float>*>(test_net->layers()[0].get());
 //	data_layer->hdf_blobs_[0]->shape(0)
@@ -1183,7 +1183,7 @@ int main(int argc, char** argv) {
 	::google::InitGoogleLogging(argv[0]);
   
 	
-	NetGen generator("/devlink/caffe/data/NetGen/RootPOSPredict/data/config.prototxt");
+	NetGen generator("/devlink/caffe/data/NetGen/gengen1455787125/data/config.prototxt");
 	vector<shared_ptr<NGNet> > nets;
 	generator.PreInit();
 	generator.Init();
@@ -1191,3 +1191,4 @@ int main(int argc, char** argv) {
 	
 }
 #endif // CAFFE_MULTINET_MAIN
+  

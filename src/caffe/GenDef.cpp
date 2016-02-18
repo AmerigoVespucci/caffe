@@ -9,6 +9,8 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
+#include <vector>
+#include <map>
 //#include "stdafx.h"
 
 //#include "MascReader.h"
@@ -16,6 +18,7 @@
 
 //#include "/dev/caffe/include/caffe/proto/GenData.pb.h"
 #include "caffe/proto/GenData.pb.h"
+#include "caffe/proto/GenDataTbls.pb.h"
 #include "caffe/GenData.hpp"
 
 #ifndef H5_NO_NAMESPACE
@@ -37,10 +40,38 @@ string gen_data_to_string ( T Number )
 	return ss.str();
 }
 
-string GetRecFieldByIdx(int SRecID, int WID, WordRec& rec, 
-						CaffeGenData_FieldType FieldID, bool& bRetValid)
+string CGenModelRun::GetRecFieldByIdx(	int SRecID, int WID, 
+										CaffeGenData_FieldType FieldID, 
+										DataAvailType& RetAvail, bool bUseAvail)
 {
-	bRetValid = true;
+	RetAvail = datConst;
+	WordRec& rec = SentenceRec[SRecID].OneWordRec[WID];		
+	SWordRecAvail WordAvail(datConst); // default to all there
+	if (bUseAvail) {
+		WordAvail = SentenceAvailList[SRecID].WordRecs[WID];
+		switch(FieldID) {
+			case CaffeGenData::FIELD_TYPE_WORD: 
+				RetAvail = WordAvail.Word;
+				break;
+			case CaffeGenData::FIELD_TYPE_WORD_CORE: 
+				RetAvail = WordAvail.WordCore;
+				break;
+			case CaffeGenData::FIELD_TYPE_POS:
+				RetAvail = WordAvail.POS;
+				break;
+			case CaffeGenData::FIELD_TYPE_WID:
+			case CaffeGenData::FIELD_TYPE_RWID:
+				RetAvail = datConst;
+				break;
+			default:
+				RetAvail = datInvalid;
+				break;
+		}
+		
+		if (RetAvail != datConst) {
+			return string();
+		}
+	}
 	switch(FieldID) {
 		case CaffeGenData::FIELD_TYPE_WORD: {
 			string w = rec.Word;
@@ -56,7 +87,7 @@ string GetRecFieldByIdx(int SRecID, int WID, WordRec& rec,
 				}
 			}
 			if (!bWordOK) {
-				bRetValid = false;
+				RetAvail = datInvalid;
 				break;
 			}
 			return w;
@@ -72,44 +103,75 @@ string GetRecFieldByIdx(int SRecID, int WID, WordRec& rec,
 		case CaffeGenData::FIELD_TYPE_RWID:
 			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(WID)) ;
 		default:
-			bRetValid = false;
+			RetAvail = datInvalid;
 			break;
 	}
 	return string();
 }
 
-DataAvailType GetDepRecAvail(SDepRecAvail& DepRec, CaffeGenData_FieldType FieldID) 
-{
-	if (DepRec.Dep == datConst && DepRec.Gov == datConst && DepRec.iDep == datConst) {
-		return datConst;
+//DataAvailType GetDepRecAvail(SDepRecAvail& DepRec, CaffeGenData_FieldType FieldID) 
+//{
+//	if (DepRec.Dep == datConst && DepRec.Gov == datConst && DepRec.iDep == datConst) {
+//		return datConst;
+//	}
+//	
+//	switch(FieldID) {
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+//			return (DepRec.iDep) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_WID: 
+//		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+//			return (DepRec.Gov) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_WID: 
+//		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+//			return (DepRec.Dep) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_RDID:
+//		case CaffeGenData::FIELD_TYPE_DEP_RDID:
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+//		default:
+//			cerr << "Error: TBD as yet. Don't know what to do in these cases.\n";
+//			return (datNotSetTooFar) ;
+//	}
+//	return (datNotSetTooFar) ;
+//}
+
+string	CGenModelRun::GetDepRecField(	int SRecID, int DID, 
+										CaffeGenData_FieldType FieldID, 
+										DataAvailType& RetAvail, bool bUseAvail) {
+	RetAvail = datConst;
+	DepRec& rec = SentenceRec[SRecID].Deps[DID];		
+	SDepRecAvail DepAvail(datConst); // default to all there
+	if (bUseAvail) {
+		DepAvail = SentenceAvailList[SRecID].Deps[DID];
+		switch(FieldID) {
+			case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+				RetAvail = DepAvail.iDep;
+				break;
+			case CaffeGenData::FIELD_TYPE_GOV_WID: 
+			case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+				RetAvail = DepAvail.Gov;
+				break;
+			case CaffeGenData::FIELD_TYPE_DEP_WID: 
+			case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+				RetAvail = DepAvail.Dep;
+				break;
+			case CaffeGenData::FIELD_TYPE_GOV_RDID:
+			case CaffeGenData::FIELD_TYPE_DEP_RDID:
+			case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+			case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+			default:
+				cerr << "Error: TBD as yet. Don't know what to do in these cases.\n";
+				RetAvail = datInvalid ;
+		}
+		
+		if (RetAvail != datConst) {
+			return string();
+		}
 	}
 	
 	switch(FieldID) {
 		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
-			return (DepRec.iDep) ;
-		case CaffeGenData::FIELD_TYPE_GOV_WID: 
-		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
-			return (DepRec.Gov) ;
-		case CaffeGenData::FIELD_TYPE_DEP_WID: 
-		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
-			return (DepRec.Dep) ;
-		case CaffeGenData::FIELD_TYPE_GOV_RDID:
-		case CaffeGenData::FIELD_TYPE_DEP_RDID:
-		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
-		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
-		default:
-			cerr << "Error: TBD as yet. Don't know what to do in these cases.\n";
-			return (datNotSetTooFar) ;
-	}
-	return (datNotSetTooFar) ;
-}
-string GetDepRecFieldByIdx(	int SRecID, int DID, vector<string>& DepNames, DepRec& rec, 
-							CaffeGenData_FieldType FieldID, bool& bRetValid)
-{
-	bRetValid = true;
-	switch(FieldID) {
-		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
-			return (DepNames[rec.iDep]) ;
+			return (GenDef.DepNames[rec.iDep]) ;
 		case CaffeGenData::FIELD_TYPE_GOV_WID: 
 			return (gen_data_to_string((int)rec.Gov)) ;
 		case CaffeGenData::FIELD_TYPE_DEP_WID: 
@@ -123,27 +185,168 @@ string GetDepRecFieldByIdx(	int SRecID, int DID, vector<string>& DepNames, DepRe
 		case CaffeGenData::FIELD_TYPE_DEP_RDID:
 			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":d");
 		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
-			return (DepNames[rec.iDep] + ":g") ;
+			return (GenDef.DepNames[rec.iDep] + ":g") ;
 		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
-			return (DepNames[rec.iDep] + ":d") ;
+			return (GenDef.DepNames[rec.iDep] + ":d") ;
 		default:
-			bRetValid = false;
+			RetAvail = datInvalid;
 			break;
 	}
 	return string();
 }
+
+//string GetDepRecFieldByIdx(	int SRecID, int DID, vector<string>& DepNames, DepRec& rec, 
+//							CaffeGenData_FieldType FieldID, bool& bRetValid)
+//{
+//	bRetValid = true;
+//	switch(FieldID) {
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+//			return (DepNames[rec.iDep]) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_WID: 
+//			return (gen_data_to_string((int)rec.Gov)) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_WID: 
+//			return (gen_data_to_string((int)rec.Dep)) ; 
+//		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Gov)) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Dep)) ; 
+//		case CaffeGenData::FIELD_TYPE_GOV_RDID:
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":g");
+//		case CaffeGenData::FIELD_TYPE_DEP_RDID:
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":d");
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+//			return (DepNames[rec.iDep] + ":g") ;
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+//			return (DepNames[rec.iDep] + ":d") ;
+//		default:
+//			bRetValid = false;
+//			break;
+//	}
+//	return string();
+//}
 	
+CGenDefTbls::CGenDefTbls(string& sModelProtoName) 
+{
+	bInitDone = false;
+	CaffeGenDataTbls * protoc_data = new CaffeGenDataTbls;
+
+	ifstream proto_ifs(sModelProtoName.c_str());
+	if (proto_ifs.is_open()) {
+		google::protobuf::io::IstreamInputStream* proto_input 
+			= new google::protobuf::io::IstreamInputStream(&proto_ifs);
+		bool bGood = true;
+		if (!google::protobuf::TextFormat::Parse(proto_input, protoc_data)) {
+			cerr << "GenDataModelInit config file Parse failed for " << sModelProtoName << endl;
+			bGood = false;
+		}
+		delete proto_input;
+		if (!bGood) {
+			return;
+		}
+	}
+	else {
+		cerr << "Error in GenDataModelInit. Model file " << sModelProtoName << " not found.\n";
+		return;
+	}
+	
+	//int NumVecTbls = protoc_data->vec_tbls_size();
+	
+	for (int ivt = 0; ivt < protoc_data->vec_tbls_size(); ivt++) {
+		CaffeGenDataTbls::VecTbl vec_tbl = protoc_data->vec_tbls(ivt);
+		TranslateTblNameMap[vec_tbl.name()] = ivt;
+		bool bThisTblIsTheVecTbl = false;
+		if (vec_tbl.name() == protoc_data->dep_name_vec_tbl()) {
+			bThisTblIsTheVecTbl = true;
+			DepNames.clear();
+		}
+		map<string, int>* pNameMap = new map<string, int>();
+		TranslateTblPtrs.push_back(pNameMap);
+		vector<vector<float> >* pVecTbl = new vector<vector<float> >();
+		VecTblPtrs.push_back(pVecTbl);
+		string VecTblPath = protoc_data->vec_tbls_core_path() + vec_tbl.path() + "/OutputVec.txt";
+		ifstream VecFile(VecTblPath.c_str());
+		if (VecFile.is_open()) {
+			string ln;
+			int NumVecs;
+			int NumValsPerVec;
+			VecFile >> NumVecs;
+			VecFile >> NumValsPerVec;
+//			if (bThisTblIsTheVecTbl) {
+//				pDepNames->resize(NumVecs);
+//			}
+
+			getline(VecFile, ln); // excess .n
+			//while (!VecFile.eof()) {
+			for (int ic = 0; ic < NumVecs; ic++) {
+				getline(VecFile, ln, ' ');
+				string w;
+				w = ln;
+				if (w.size() == 0) {
+					cerr << "There should be as many items in the vec file as stated on the first line of file.\n";
+					return;
+				}
+				if (bThisTblIsTheVecTbl) {
+					DepNames.push_back(w);
+				}
+				(*pNameMap)[w] = ic;
+				pVecTbl->push_back(vector<float>());
+				vector<float>& OneVec = pVecTbl->back();
+				//vector<float>& OneVec = WordsVecs[iw];
+				for (int iwv = 0; iwv < NumValsPerVec; iwv++) {
+					if (iwv == NumValsPerVec - 1) {
+						getline(VecFile, ln);
+					}
+					else {
+						getline(VecFile, ln, ' ');
+					}
+					float wv;
+					wv = ::atof(ln.c_str());
+					OneVec.push_back(wv);
+				}
+			}
+		}
+	}
+
+	vector<vector<float> > * YesNoTbl = new vector<vector<float> >;
+	YesNoTbl->push_back(vector<float>(1, 0.0f));
+	YesNoTbl->push_back(vector<float>(1, 1.0f));
+
+	
+	int YesNoTblIdx = TranslateTblPtrs.size();
+	TranslateTblNameMap["YesNoTbl"] = YesNoTblIdx;
+	TranslateTblPtrs.push_back(NULL);
+	VecTblPtrs.push_back(YesNoTbl);
+	delete protoc_data;
+	bInitDone = true;
+
+}
 
 
 
-bool GenDataModelInit(string sModelProtoName, NetGenInitData * InitData ) 
+bool CGenDef::ModelInit(string sModelProtoName ) 
 {
 	//CaffeFnInitData * InitData = new CaffeFnInitData;
 
 //	CaffeFnHandle = NULL;
 //	CaffeFnOutHandle = NULL;
-	CaffeGenData* gen_data = new CaffeGenData;
-	InitData->gen_data = gen_data;
+//	TranslateTblPtrs.clear();
+//	VecTblPtrs.clear();
+//	TranslateTblNameMap.clear();
+	InputTranslateTbl.clear();
+	OutputTranslateTbl.clear();
+	FirstAccessFieldsIdx.clear();
+	VarNamesMap.clear();
+	DataTranslateTbl.clear();
+	DataFilterTbl.clear();
+	ICanReplaceTbl.clear();
+	OCanReplaceTbl.clear();
+	NumInstancesTbl[0].clear();
+	NumInstancesTbl[1].clear();
+	MaxInstancesTbl[0].clear();
+	MaxInstancesTbl[1].clear();
+	bCanReplace = false;
+	
+	gen_data = new CaffeGenData;
 	
 	ifstream proto_ifs(sModelProtoName.c_str());
 	if (proto_ifs.is_open()) {
@@ -171,77 +374,78 @@ bool GenDataModelInit(string sModelProtoName, NetGenInitData * InitData )
 //	ofstream test_list(H5TestListFileName.c_str(), ofstream::trunc);
 //	ofstream train_list(H5TrainListFileName.c_str(), ofstream::trunc);
 
-	InitData->NumVecTbls = gen_data->vec_tbls_size();
-	
-	for (int ivt = 0; ivt < gen_data->vec_tbls_size(); ivt++) {
-		CaffeGenData::VecTbl vec_tbl = gen_data->vec_tbls(ivt);
-		InitData->TranslateTblNameMap[vec_tbl.name()] = ivt;
-		bool bThisTblIsTheVecTbl = false;
-		if (vec_tbl.name() == gen_data->dep_name_vec_tbl()) {
-			bThisTblIsTheVecTbl = true;
-			InitData->DepNames.clear();
-		}
-		map<string, int>* pNameMap = new map<string, int>();
-		InitData->TranslateTblPtrs.push_back(pNameMap);
-		vector<vector<float> >* pVecTbl = new vector<vector<float> >();
-		InitData->VecTblPtrs.push_back(pVecTbl);
-		string VecTblPath = gen_data->vec_tbls_core_path() + vec_tbl.path() + "/OutputVec.txt";
-		ifstream VecFile(VecTblPath.c_str());
-		if (VecFile.is_open()) {
-			string ln;
-			int NumVecs;
-			int NumValsPerVec;
-			VecFile >> NumVecs;
-			VecFile >> NumValsPerVec;
-//			if (bThisTblIsTheVecTbl) {
-//				pDepNames->resize(NumVecs);
+//	NumVecTbls = gen_data->vec_tbls_size();
+//	
+//	for (int ivt = 0; ivt < gen_data->vec_tbls_size(); ivt++) {
+//		CaffeGenData::VecTbl vec_tbl = gen_data->vec_tbls(ivt);
+//		TranslateTblNameMap[vec_tbl.name()] = ivt;
+//		bool bThisTblIsTheVecTbl = false;
+//		if (vec_tbl.name() == gen_data->dep_name_vec_tbl()) {
+//			bThisTblIsTheVecTbl = true;
+//			DepNames.clear();
+//		}
+//		map<string, int>* pNameMap = new map<string, int>();
+//		TranslateTblPtrs.push_back(pNameMap);
+//		vector<vector<float> >* pVecTbl = new vector<vector<float> >();
+//		VecTblPtrs.push_back(pVecTbl);
+//		string VecTblPath = gen_data->vec_tbls_core_path() + vec_tbl.path() + "/OutputVec.txt";
+//		ifstream VecFile(VecTblPath.c_str());
+//		if (VecFile.is_open()) {
+//			string ln;
+//			int NumVecs;
+//			int NumValsPerVec;
+//			VecFile >> NumVecs;
+//			VecFile >> NumValsPerVec;
+////			if (bThisTblIsTheVecTbl) {
+////				pDepNames->resize(NumVecs);
+////			}
+//
+//			getline(VecFile, ln); // excess .n
+//			//while (!VecFile.eof()) {
+//			for (int ic = 0; ic < NumVecs; ic++) {
+//				getline(VecFile, ln, ' ');
+//				string w;
+//				w = ln;
+//				if (w.size() == 0) {
+//					cerr << "There should be as many items in the vec file as stated on the first line of file.\n";
+//					return false;
+//				}
+//				if (bThisTblIsTheVecTbl) {
+//					DepNames.push_back(w);
+//				}
+//				(*pNameMap)[w] = ic;
+//				pVecTbl->push_back(vector<float>());
+//				vector<float>& OneVec = pVecTbl->back();
+//				//vector<float>& OneVec = WordsVecs[iw];
+//				for (int iwv = 0; iwv < NumValsPerVec; iwv++) {
+//					if (iwv == NumValsPerVec - 1) {
+//						getline(VecFile, ln);
+//					}
+//					else {
+//						getline(VecFile, ln, ' ');
+//					}
+//					float wv;
+//					wv = ::atof(ln.c_str());
+//					OneVec.push_back(wv);
+//				}
 //			}
-
-			getline(VecFile, ln); // excess .n
-			//while (!VecFile.eof()) {
-			for (int ic = 0; ic < NumVecs; ic++) {
-				getline(VecFile, ln, ' ');
-				string w;
-				w = ln;
-				if (w.size() == 0) {
-					cerr << "There should be as many items in the vec file as stated on the first line of file.\n";
-					return false;
-				}
-				if (bThisTblIsTheVecTbl) {
-					InitData->DepNames.push_back(w);
-				}
-				(*pNameMap)[w] = ic;
-				pVecTbl->push_back(vector<float>());
-				vector<float>& OneVec = pVecTbl->back();
-				//vector<float>& OneVec = WordsVecs[iw];
-				for (int iwv = 0; iwv < NumValsPerVec; iwv++) {
-					if (iwv == NumValsPerVec - 1) {
-						getline(VecFile, ln);
-					}
-					else {
-						getline(VecFile, ln, ' ');
-					}
-					float wv;
-					wv = ::atof(ln.c_str());
-					OneVec.push_back(wv);
-				}
-			}
-		}
-	}
-
-	vector<vector<float> > * YesNoTbl = new vector<vector<float> >;
-	YesNoTbl->push_back(vector<float>(1, 0.0f));
-	YesNoTbl->push_back(vector<float>(1, 1.0f));
-
-	
-	InitData->YesNoTblIdx = InitData->TranslateTblPtrs.size();
-	InitData->TranslateTblNameMap["YesNoTbl"] = InitData->YesNoTblIdx;
-	InitData->TranslateTblPtrs.push_back(NULL);
-	InitData->VecTblPtrs.push_back(YesNoTbl);
+//		}
+//	}
+//
+//	vector<vector<float> > * YesNoTbl = new vector<vector<float> >;
+//	YesNoTbl->push_back(vector<float>(1, 0.0f));
+//	YesNoTbl->push_back(vector<float>(1, 1.0f));
+//
+//	
+//	YesNoTblIdx = TranslateTblPtrs.size();
+//	TranslateTblNameMap["YesNoTbl"] = YesNoTblIdx;
+//	TranslateTblPtrs.push_back(NULL);
+//	VecTblPtrs.push_back(YesNoTbl);
 	return true;
 }
 
-void GenDataModelComplete(NetGenInitData * InitData)
+#if 0
+void GenDataModelComplete(CGenDef * InitData)
 {
 	
 	//if (!CaffeFnHandle || !CaffeFnOutHandle) {
@@ -253,28 +457,12 @@ void GenDataModelComplete(NetGenInitData * InitData)
 
 	delete InitData;
 }
+#endif // 0
 
-bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl, 
-						vector<pair<int, int> >& OutputTranslateTbl,
-						vector<SDataForVecs >& DataForVecs,
-						int& NumOutputNodesNeeded,
-						vector<SSentenceRec>& SentenceRec, 
-						vector<CorefRec>& CorefList, 
-						vector<SSentenceRecAvail>& SentenceAvailList, 
-						vector<DataAvailType>& CorefAvail, 
-						NetGenInitData * InitData)
+bool CGenDef::ModelPrep()
 {
-	bool bUseAvail = (SentenceAvailList.size() > 0);
-	CaffeGenData* gen_data = InitData->gen_data; // (CaffeGenData *)CaffeFnHandle;
-	vector<map<string, int>*>& TranslateTblPtrs = InitData->TranslateTblPtrs;
-	vector<vector<vector<float> >* >& VecTblPtrs = InitData->VecTblPtrs;
-	map<string, int>& TranslateTblNameMap = InitData->TranslateTblNameMap;
-	vector<string>& DepNames = InitData->DepNames;
-	int YesNoTblIdx = InitData->YesNoTblIdx;
-
+	//CaffeGenData* gen_data = gen_data; // (CaffeGenData *)CaffeFnHandle;
 	// each pair in the table: first - idx of rec to access. second: idx of VarTbl to put it into
-	vector<pair<CaffeGenData_FieldType, int> > FirstAccessFieldsIdx; 
-	map<string, int> VarNamesMap;
 	for (int idf = 0; idf < gen_data->data_fields_size(); idf++) {
 		const CaffeGenData::DataField& Field = gen_data->data_fields(idf);
 		const string& VarName = Field.var_name();
@@ -290,7 +478,6 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 	}
 
 
-	vector<SDataTranslateEntry> DataTranslateTbl; 
 	for (int idt = 0; idt < gen_data->data_translates_size(); idt++) {
 		SDataTranslateEntry DataTranslateEntry ;
 		DataTranslateEntry.dtet = dtetRWIDToWord;
@@ -351,7 +538,6 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 		DataTranslateTbl.push_back(DataTranslateEntry);
 	}
 	// first field the index of the var to be matched in var tbl, second, the string to match
-	vector<pair<int, string> > DataFilterTbl;
 	for (int idf = 0; idf < gen_data->data_filters_size(); idf++) {
 		const CaffeGenData::DataFilter& GenDataFilter = gen_data->data_filters(idf);
 		const string& MatchName = GenDataFilter.var_name();
@@ -366,15 +552,6 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 	// for each pair in table: first - idx of VarTbl. second - index of translate tbl
 //	vector<pair<int, int> > InputTranslateTbl;
 //	vector<pair<int, int> > OutputTranslateTbl;
-	bool bCanReplace = false;
-	vector<bool> ICanReplaceTbl;
-	vector<bool> OCanReplaceTbl;
-	// Num number of instances of that word in that data field
-	// one for in and one for out
-	// combining old and vew arrays
-	// indexed the same as the translate tbl
-	vector<vector<int> > NumInstancesTbl[2];
-	vector<int> MaxInstancesTbl[2];
 	int OTranslateTableSize = -1;
 	for (int iBoth=0; iBoth<2; iBoth++) {
 		vector<pair<int, int> >* pTranslateTbl = &InputTranslateTbl;
@@ -459,7 +636,47 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 			NumOutputNodesNeeded += (*pTbl)[0].size();
 		}
 	}
+
+	return true;
+}
+
+bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx) {
+	if (OutputTranslateTbl.size() != 1) {
+		cerr << "Error in setReqTheOneOutput: only models with 1 output are supported.\n";
+		return false;
+	}
+	// The index of the var table acceesed in order to create the single output
+	// is the index we are looking for. When an access or translation is made whose
+	// output is meant to be written to that entry of the var table, it must have
+	// the Avail value of datTheOne. That means that the NN built has the output
+	// of the field we are looking to add
+	pair<int, int>& iott = OutputTranslateTbl[0];
+	OutputTheOneIdx = iott.first;
 	
+	return true;
+	
+}
+
+void  CGenModelRun::setReqTheOneOutput() { 
+	bReqTheOneOutput = true; 
+	int RetIdx = -1;
+	if (GenDef.setReqTheOneOutput(RetIdx)) {
+		OutputTheOneIdx = RetIdx;
+	}
+}
+
+bool CGenModelRun::DoRun() {
+	DataForVecs.clear();
+	
+	vector<map<string, int>*>& TranslateTblPtrs = GenDef.TranslateTblPtrs;
+//	vector<vector<vector<float> >* >& VecTblPtrs = GenDef.VecTblPtrs;
+//	map<string, int>& TranslateTblNameMap = GenDef.TranslateTblNameMap;
+	vector<string>& DepNames = GenDef.DepNames;
+	int YesNoTblIdx = GenDef.YesNoTblIdx;
+	CaffeGenData* gen_data = GenDef.getGenData();
+
+	bool bUseAvail = (SentenceAvailList.size() > 0);
+
 	// create a reverse table for the coref data
 	
 	vector<vector<int> > CorefRevTbl(SentenceRec.size(), vector<int>());
@@ -506,31 +723,31 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 //				}
 				vector<DepRec>& DepRecs = Rec.Deps;
 				for (int idrec = 0; idrec < DepRecs.size(); idrec++) { 
-					DepRec& drec = DepRecs[idrec];
-					vector<string> VarTbl = vector<string> (VarNamesMap.size()); 
-					vector<SVarCntrlEl> VarTblAvail = vector<SVarCntrlEl> (VarNamesMap.size()); 
+//					DepRec& drec = DepRecs[idrec];
+					vector<string> VarTbl = vector<string> (GenDef.VarNamesMap.size()); 
 					bool bAllFieldsFound = true;
-					for (int ia = 0; ia < FirstAccessFieldsIdx.size(); ia++ ) {
-						pair<CaffeGenData_FieldType, int>& access = FirstAccessFieldsIdx[ia];
-						bool bValid = true;
+					for (int ia = 0; ia < GenDef.FirstAccessFieldsIdx.size(); ia++ ) {
+						pair<CaffeGenData_FieldType, int>& access = GenDef.FirstAccessFieldsIdx[ia];
+						DataAvailType RetAvail = datConst;
 						if (access.second >= VarTbl.size()) {
 							cerr << "Serious error!\n";
 							return false;
 						}
-						if (bUseAvail) {
-							SDepRecAvail& DRecAvail = SentenceAvailList[isr].Deps[idrec];		
-							DataAvailType AvailStatus
-									= GetDepRecAvail(DRecAvail, access.first); 
-							if (AvailStatus  == datNotSetTooFar) {
-								cerr << "Warning. Please investigate how we got here.\n";
+						VarTbl[access.second] 
+								= GetDepRecField(	isr, idrec, access.first, 
+													RetAvail, bUseAvail);
+						if (RetAvail != datConst) {
+							if (	(RetAvail == datTheOne) 
+								&&	bReqTheOneOutput 
+								&&	(access.second == OutputTheOneIdx)) {
+							}
+							else {
+								bAllFieldsFound = false;
 								break;
 							}
-							VarTblAvail[access.second].SrcStatus  = AvailStatus;
 						}
-						VarTbl[access.second] 
-								= GetDepRecFieldByIdx(	isr, idrec, DepNames, drec, 
-														access.first, bValid);
-						if (!bValid) {
+						else if (	bReqTheOneOutput 
+								&&	(access.second == OutputTheOneIdx)) {
 							bAllFieldsFound = false;
 							break;
 						}
@@ -555,19 +772,31 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 //					continue;
 //				}
 				 for (int iwrec = 0; iwrec < WordRecs.size(); iwrec++) {
-					WordRec& wrec = WordRecs[iwrec];
-					VarTblsForGo.push_back(vector<string> (VarNamesMap.size()));
+					VarTblsForGo.push_back(vector<string> (GenDef.VarNamesMap.size()));
 					vector<string>& VarTbl = VarTblsForGo.back(); 
 					bool bAllFieldsFound = true;
-					for (int ia = 0; ia < FirstAccessFieldsIdx.size(); ia++ ) {
-						pair<CaffeGenData_FieldType, int>& access = FirstAccessFieldsIdx[ia];
-						bool bValid = true;
+					for (int ia = 0; ia < GenDef.FirstAccessFieldsIdx.size(); ia++ ) {
+						pair<CaffeGenData_FieldType, int>& access = GenDef.FirstAccessFieldsIdx[ia];
+						DataAvailType RetAvail = datConst;
 						if (access.second >= VarTbl.size()) {
 							cerr << "Serious error!\n";
 							return false;
 						}
-						VarTbl[access.second] = GetRecFieldByIdx(isr, iwrec, wrec, access.first, bValid);
-						if (!bValid) {
+						VarTbl[access.second] 
+								= GetRecFieldByIdx(	isr, iwrec, access.first, 
+													RetAvail, bUseAvail);
+						if (RetAvail != datConst) {
+							if (	(RetAvail == datTheOne) 
+								&&	bReqTheOneOutput 
+								&&	(access.second == OutputTheOneIdx)) {
+							}
+							else {
+								bAllFieldsFound = false;
+								break;
+							}
+						}
+						else if (	bReqTheOneOutput 
+								&&	(access.second == OutputTheOneIdx)) {
 							bAllFieldsFound = false;
 							break;
 						}
@@ -580,13 +809,13 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 			}
 		}
 		
-		if (DataTranslateTbl.size() > 0) {
+		if (GenDef.DataTranslateTbl.size() > 0) {
 			vector<vector<string> > VarTblsForGoTranslated; 
 			for (int ivt = 0; ivt < VarTblsForGo.size(); ivt++) {
 				vector<string>& VarTbl = VarTblsForGo[ivt];
 				bool bAllGood = true;
-				for (int idte = 0; idte < DataTranslateTbl.size(); idte++) {
-					SDataTranslateEntry& DataTranslateEntry =  DataTranslateTbl[idte];
+				for (int idte = 0; idte < GenDef.DataTranslateTbl.size(); idte++) {
+					SDataTranslateEntry& DataTranslateEntry =  GenDef.DataTranslateTbl[idte];
 					string VarNameForMatch = VarTbl[DataTranslateEntry.VarTblMatchIdx];
 					// Phase 1. Access the current record
 					int WID = -1; // Assumes the translation was from WID, the id of the record in the WordRecs Tbl
@@ -650,15 +879,25 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 								bAllGood = false;
 								break;
 							}
-							WordRec& wrec = WordRecs[WID];
-							bool bValid = true;
+							DataAvailType RetAvail = datConst;
 							VarTbl[DataTranslateEntry.VarTblIdx] 
-								= GetRecFieldByIdx(	RecID, WID, wrec, 
-													DataTranslateEntry.TargetTblOutputIdx, 
-													bValid);
-							if (!bValid) {
+									= GetRecFieldByIdx(	RecID, WID, 
+														DataTranslateEntry.TargetTblOutputIdx, 
+														RetAvail, bUseAvail );
+							if (RetAvail != datConst) {
+								if (	(RetAvail == datTheOne) 
+									&&	bReqTheOneOutput 
+									&&	(DataTranslateEntry.VarTblIdx == OutputTheOneIdx)) {
+								}
+								else {
+									bAllGood = false;
+									break;
+								}
+							}
+							else if (	bReqTheOneOutput 
+									&&	(DataTranslateEntry.VarTblIdx == OutputTheOneIdx)) {
 								bAllGood = false;
-								break;						
+								break;
 							}
 						}
 					}
@@ -667,22 +906,39 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 						vector<DepRec>& DepRecs = SRec.Deps;
 						for (int idid = 0; idid < DepRecs.size() ; idid++) {
 							DepRec& drec = DepRecs[idid];
-							bool bValid = true;
+							DataAvailType RetAvail = datConst;
 							if (drec.Gov == WID) { 
 #pragma message("replace setting the last time by addding a new rVarTbl each time")								
 								VarTbl[DataTranslateEntry.VarTblIdx] 
-										= GetDepRecFieldByIdx(	RecID, idid, DepNames, drec, 
-																CaffeGenData::FIELD_TYPE_GOV_RDID, 
-																bValid);
+										= GetDepRecField(	RecID, idid, 
+															CaffeGenData::FIELD_TYPE_GOV_RDID, 
+															RetAvail, bUseAvail);
 
 							}
 							if (drec.Dep == WID) { 
 								VarTbl[DataTranslateEntry.VarTblIdx] 
-										= GetDepRecFieldByIdx(	RecID, idid, DepNames, drec, 
-																CaffeGenData::FIELD_TYPE_DEP_RDID, 
-																bValid);
+										= GetDepRecField(	RecID, idid, 
+															CaffeGenData::FIELD_TYPE_DEP_RDID, 
+															RetAvail, bUseAvail);
 
 							}
+							
+							if (RetAvail != datConst) {
+								if (	(RetAvail == datTheOne) 
+									&&	bReqTheOneOutput 
+									&&	(DataTranslateEntry.VarTblIdx == OutputTheOneIdx)) {
+								}
+								else {
+									bAllGood = false;
+									break;
+								}
+							}
+							else if (	bReqTheOneOutput 
+									&&	(DataTranslateEntry.VarTblIdx == OutputTheOneIdx)) {
+								bAllGood = false;
+								break;
+							}
+							
 						}
 						
 						
@@ -770,12 +1026,12 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 			VarTblsForGo.clear();
 			VarTblsForGo = VarTblsForGoTranslated;
 		}
-		if (DataFilterTbl.size() > 0) {
+		if (GenDef.DataFilterTbl.size() > 0) {
 			vector<vector<string> > VarTblsForGoTranslated; 
 			for (int ivt = 0; ivt < VarTblsForGo.size(); ivt++) {
 				vector<string>& VarTbl = VarTblsForGo[ivt];
-				for (int idf = 0; idf < DataFilterTbl.size(); idf++) {
-					pair<int, string>& DataFilter =  DataFilterTbl[idf];
+				for (int idf = 0; idf < GenDef.DataFilterTbl.size(); idf++) {
+					pair<int, string>& DataFilter =  GenDef.DataFilterTbl[idf];
 					string FieldVal = VarTbl[DataFilter.first];
 					if (FieldVal == DataFilter.second) {
 						VarTblsForGoTranslated.push_back(VarTbl);
@@ -792,11 +1048,15 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 			vector<int> IData;
 			vector<int> OData;
 			for (int iBoth=0; bAllFieldsFound && iBoth<2; iBoth++) {
-				vector<pair<int, int> >* pTranslateTbl = &InputTranslateTbl;
+				vector<pair<int, int> >* pTranslateTbl = &GenDef.InputTranslateTbl;
 				vector<int>* pData =  &IData;
 				if (iBoth == 1) {
 					pData = &OData;
-					pTranslateTbl = &OutputTranslateTbl;
+					pTranslateTbl = &GenDef.OutputTranslateTbl;
+					if (bReqTheOneOutput) {
+						cerr << "Founf the one!\n";
+						continue;
+					}
 				}
 				
 				for (int iitt = 0;iitt<pTranslateTbl->size();iitt++) {
@@ -814,12 +1074,12 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 							bAllFieldsFound = false;
 							break;
 						}
-						if (MaxInstancesTbl[iBoth][iitt] >= 0) {
-							if (NumInstancesTbl[iBoth][iitt][itm->second] >= MaxInstancesTbl[iBoth][iitt]) {
+						if (GenDef.MaxInstancesTbl[iBoth][iitt] >= 0) {
+							if (GenDef.NumInstancesTbl[iBoth][iitt][itm->second] >= GenDef.MaxInstancesTbl[iBoth][iitt]) {
 								bAllFieldsFound = false;
 								break;
 							}
-							NumInstancesTbl[iBoth][iitt][itm->second]++;
+							GenDef.NumInstancesTbl[iBoth][iitt][itm->second]++;
 						}
 						pData->push_back(itm->second);
 					}
@@ -830,19 +1090,19 @@ bool GenDataModelApply(	vector<pair<int, int> >& InputTranslateTbl,
 				continue;
 			}
 			DataForVecs.push_back(SDataForVecs(rand(), IData, true, OData));
-			if (bCanReplace) {
+			if (GenDef.bCanReplace) {
 				vector<int> IDataRepl(IData.size());
 				vector<int> ODataRepl(OData.size());
 				for (int iBoth=0; iBoth<2; iBoth++) {
 					vector<int>* pDataRepl = &IDataRepl;
-					vector<pair<int, int> >* pTranslateTbl = &InputTranslateTbl;
+					vector<pair<int, int> >* pTranslateTbl = &GenDef.InputTranslateTbl;
 					vector<int>* pData = &IData;
-					vector<bool>* pCanReplaceTbl =  &ICanReplaceTbl;
+					vector<bool>* pCanReplaceTbl =  &GenDef.ICanReplaceTbl;
 					if (iBoth == 1) {
 						pDataRepl = &ODataRepl;
-						pTranslateTbl = &OutputTranslateTbl;
+						pTranslateTbl = &GenDef.OutputTranslateTbl;
 						pData = &OData; 
-						pCanReplaceTbl =  &OCanReplaceTbl;
+						pCanReplaceTbl =  &GenDef.OCanReplaceTbl;
 					}
 					for (int iitt = 0;iitt<pTranslateTbl->size();iitt++) {
 						pair<int, int>& itt = (*pTranslateTbl)[iitt];
