@@ -61,6 +61,20 @@ struct CorefRec {
     bool operator == (CorefRec& Other);
 };
 
+struct VarTblEl {
+	VarTblEl() {
+		bDorW = false; // but invalid
+		R_DorW_ID = make_pair(-1, -1);
+	}
+	VarTblEl(bool b_deprec, int isr, int w_or_d_id) {
+		bDorW = b_deprec;
+		R_DorW_ID = make_pair(isr, w_or_d_id);
+	}
+	bool bDorW;
+	pair<int, int> R_DorW_ID; // SRec ID, WID/DID
+};
+
+
 
 struct SSentenceRec {
     static bool lt(const SSentenceRec& r0, const SSentenceRec& r1) {
@@ -194,6 +208,7 @@ public:
     vector<vector<vector<float> >* >& getVecTblPtrs() { return VecTblPtrs; }
     vector<map<string, int>*>& getTranslateTblPtrs() { return TranslateTblPtrs; }
     vector<string>& getDepNamesTbl() { return DepNames; };
+	bool getTableNameIdx(const string& TblName, int& idx);
 
     bool bInitDone;
     
@@ -210,10 +225,6 @@ class CGenDef {
     
 public:
     CGenDef(CGenDefTbls * apGenDefTbls, bool abYouOwnTblsData) :
-//			std::vector<std::map<std::string, int>*> aTranslateTblPtrs,
-//			std::vector<std::vector<std::vector<float> >* > aVecTblPtrs,
-//			std::map<std::string, int> aTranslateTblNameMap,
-//			vector<string> aDepNames) :
 			TranslateTblPtrs(apGenDefTbls->TranslateTblPtrs), 
 			VecTblPtrs(apGenDefTbls->VecTblPtrs),
 			TranslateTblNameMap(apGenDefTbls->TranslateTblNameMap),
@@ -223,6 +234,8 @@ public:
         gen_data = NULL;
 		pGenDefTbls = apGenDefTbls;
 		bYouOwnTblsData = abYouOwnTblsData;
+	    pGenDefTbls->getTableNameIdx(string("YesNoTbl"), YesNoTblIdx);
+
 		
         //test = atest;
     }
@@ -237,6 +250,7 @@ public:
     bool ModelInit(string sModelProtoName);
     bool ModelPrep();
     CaffeGenData* getGenData() {return gen_data; }
+    CaffeGenDef* getGenDef() {return gen_def; }
     vector<pair<int, int> >& getInputTranslateTbl() { return InputTranslateTbl; }
     vector<pair<int, int> >& getOutputTranslateTbl() { return OutputTranslateTbl; }
     vector<vector<vector<float> >* >& getVecTblPtrs() { return VecTblPtrs; }
@@ -244,11 +258,13 @@ public:
     vector<string>& getDepNamesTbl() { return DepNames; };
     bool setReqTheOneOutput(int& OutputTheOneIdx) ;
     int getNumOutputNodesNeeded() { return NumOutputNodesNeeded; }
+	vector<pair<int, bool> >& getAccessFilterOrderTbl() { return AccessFilterOrderTbl; }
 //    void DoTest(int atest) {
 //        test = atest;
 //    }
 private:
     CaffeGenData* gen_data;
+	CaffeGenDef * gen_def;
 	CGenDefTbls * pGenDefTbls;
 	bool bYouOwnTblsData;
     //CaffeGenSeed* gen_seed_config;
@@ -257,7 +273,7 @@ private:
     std::vector<std::vector<std::vector<float> >* >& VecTblPtrs;
     std::map<std::string, int>& TranslateTblNameMap;
     vector<string>& DepNames;
-    int YesNoTblIdx; // remove
+    int YesNoTblIdx; 
     std::vector<std::pair<int, int> > InputTranslateTbl;
     std::vector<std::pair<int, int> > OutputTranslateTbl;
     int NumOutputNodesNeeded;
@@ -272,11 +288,12 @@ private:
     // combining old and vew arrays
     // indexed the same as the translate tbl
     vector<vector<int> > NumInstancesTbl[2];
-    vector<int> MaxInstancesTbl[2];
+	// A new revision of NumInstancesTbl concept
+	// has the same dimentionality as net_values and indexed as it is
+    vector<vector<int> > InstanceCountTbl;
+	vector<int> MaxInstancesTbl[2];
     bool bCanReplace;
-
-
-
+	vector<pair<int, bool> > AccessFilterOrderTbl; // if second is true, first is access message index else filter message
 };
 
 class CGenModelRun {
@@ -295,13 +312,21 @@ public:
     bool DoRun();
     vector<SDataForVecs >& getDataForVecs() { return DataForVecs; }
     void setReqTheOneOutput() ;
+	bool DepMatchTest(	const CaffeGenDef::DataAccess& data_access_rec, 
+						int isr, int DID, int isrBeyond, bool b_use_avail);
+	bool WordMatchTest(	const CaffeGenDef::DataAccess& data_access_rec, 
+						int isr, int WID, int isrBeyond, bool b_use_avail);
+	bool FilterTest(	const CaffeGenDef::DataFilter& data_filter,
+						vector<VarTblEl> var_tbl);
     
 private:
     string  GetDepRecField(	int SRecID, int DID, CaffeGenData_FieldType FieldID, 
-                                DataAvailType& RetAvail, bool bUseAvail) ;
+                                DataAvailType& RetAvail, bool bUseAvail) {
+		return string(); 
+	}
     string GetRecFieldByIdx(int SRecID, int WID, 
                             CaffeGenData_FieldType FieldID, 
-                            DataAvailType& RetAvail, bool bUseAvail);
+                            DataAvailType& RetAvail, bool bUseAvail); 
 
     CGenDef& GenDef;
     std::vector<SSentenceRec>& SentenceRec; 

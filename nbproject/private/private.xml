@@ -12,9 +12,18 @@
         <group>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/MultiNet.cpp</file>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/NetGen.cpp</file>
+            <file>file:/home/eli/dev/caffe/src/caffe/GenDef.cpp</file>
             <file>file:/home/eli/dev/caffe/tools/caffe.cpp</file>
             <file>file:/home/eli/dev/caffe/include/caffe/GenData.hpp</file>
             <file>file:/home/eli/dev/caffe/Makefile.config</file>
         </group>
     </open-files>
+    <preferences xmlns="http://www.netbeans.org/ns/auxiliary-configuration-preferences/1">
+        <module name="org-netbeans-modules-cnd-discovery">
+            <property name="rootFolder" value="/home/eli/dev/caffe"/>
+            <property name="make-log-file" value="/home/eli/dev/caffe/.build_debug/tools/caffe.bin"/>
+            <property name="exec-log-file" value="/home/eli/dev/caffe/.build_debug/tools/caffe.bin"/>
+            <property name="model-folder" value="/home/eli/dev/caffe"/>
+        </module>
+    </preferences>
 </project-private>

@@ -3,7 +3,7 @@
 //
 
 
-  
+ 
 #include <fcntl.h>
 #include <string>
 #include <google/protobuf/io/coded_stream.h>
@@ -18,7 +18,6 @@
 
 //#include "/dev/caffe/include/caffe/proto/GenData.pb.h"
 #include "caffe/proto/GenData.pb.h"
-#include "caffe/proto/GenDef.pb.h"
 #include "caffe/proto/GenDataTbls.pb.h"
 #include "caffe/GenData.hpp"
 
@@ -40,7 +39,6 @@ string gen_data_to_string ( T Number )
 	ss << Number;
 	return ss.str();
 }
-
 
 string CGenModelRun::GetRecFieldByIdx(	int SRecID, int WID, 
 										CaffeGenData_FieldType FieldID, 
@@ -111,7 +109,122 @@ string CGenModelRun::GetRecFieldByIdx(	int SRecID, int WID,
 	return string();
 }
 
+//DataAvailType GetDepRecAvail(SDepRecAvail& DepRec, CaffeGenData_FieldType FieldID) 
+//{
+//	if (DepRec.Dep == datConst && DepRec.Gov == datConst && DepRec.iDep == datConst) {
+//		return datConst;
+//	}
+//	
+//	switch(FieldID) {
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+//			return (DepRec.iDep) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_WID: 
+//		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+//			return (DepRec.Gov) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_WID: 
+//		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+//			return (DepRec.Dep) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_RDID:
+//		case CaffeGenData::FIELD_TYPE_DEP_RDID:
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+//		default:
+//			cerr << "Error: TBD as yet. Don't know what to do in these cases.\n";
+//			return (datNotSetTooFar) ;
+//	}
+//	return (datNotSetTooFar) ;
+//}
 
+string	CGenModelRun::GetDepRecField(	int SRecID, int DID, 
+										CaffeGenData_FieldType FieldID, 
+										DataAvailType& RetAvail, bool bUseAvail) {
+	RetAvail = datConst;
+	DepRec& rec = SentenceRec[SRecID].Deps[DID];		
+	SDepRecAvail DepAvail(datConst); // default to all there
+	if (bUseAvail) {
+		DepAvail = SentenceAvailList[SRecID].Deps[DID];
+		switch(FieldID) {
+			case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+				RetAvail = DepAvail.iDep;
+				break;
+			case CaffeGenData::FIELD_TYPE_GOV_WID: 
+			case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+				RetAvail = DepAvail.Gov;
+				break;
+			case CaffeGenData::FIELD_TYPE_DEP_WID: 
+			case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+				RetAvail = DepAvail.Dep;
+				break;
+			case CaffeGenData::FIELD_TYPE_GOV_RDID:
+			case CaffeGenData::FIELD_TYPE_DEP_RDID:
+			case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+			case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+			default:
+				cerr << "Error: TBD as yet. Don't know what to do in these cases.\n";
+				RetAvail = datInvalid ;
+		}
+		
+		if (RetAvail != datConst) {
+			return string();
+		}
+	}
+	
+	switch(FieldID) {
+		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+			return (GenDef.DepNames[rec.iDep]) ;
+		case CaffeGenData::FIELD_TYPE_GOV_WID: 
+			return (gen_data_to_string((int)rec.Gov)) ;
+		case CaffeGenData::FIELD_TYPE_DEP_WID: 
+			return (gen_data_to_string((int)rec.Dep)) ; 
+		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Gov)) ;
+		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Dep)) ; 
+		case CaffeGenData::FIELD_TYPE_GOV_RDID:
+			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":g");
+		case CaffeGenData::FIELD_TYPE_DEP_RDID:
+			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":d");
+		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+			return (GenDef.DepNames[rec.iDep] + ":g") ;
+		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+			return (GenDef.DepNames[rec.iDep] + ":d") ;
+		default:
+			RetAvail = datInvalid;
+			break;
+	}
+	return string();
+}
+
+//string GetDepRecFieldByIdx(	int SRecID, int DID, vector<string>& DepNames, DepRec& rec, 
+//							CaffeGenData_FieldType FieldID, bool& bRetValid)
+//{
+//	bRetValid = true;
+//	switch(FieldID) {
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME: 
+//			return (DepNames[rec.iDep]) ;
+//		case CaffeGenData::FIELD_TYPE_GOV_WID: 
+//			return (gen_data_to_string((int)rec.Gov)) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_WID: 
+//			return (gen_data_to_string((int)rec.Dep)) ; 
+//		case CaffeGenData::FIELD_TYPE_GOV_RWID: 
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Gov)) ;
+//		case CaffeGenData::FIELD_TYPE_DEP_RWID: 
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string((int)rec.Dep)) ; 
+//		case CaffeGenData::FIELD_TYPE_GOV_RDID:
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":g");
+//		case CaffeGenData::FIELD_TYPE_DEP_RDID:
+//			return (gen_data_to_string(SRecID) + ":" + gen_data_to_string(DID) + ":d");
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_G:
+//			return (DepNames[rec.iDep] + ":g") ;
+//		case CaffeGenData::FIELD_TYPE_DEP_NAME_D:
+//			return (DepNames[rec.iDep] + ":d") ;
+//		default:
+//			bRetValid = false;
+//			break;
+//	}
+//	return string();
+//}
+	
 CGenDefTbls::CGenDefTbls(string& sModelProtoName) 
 {
 	bInitDone = false;
@@ -208,59 +321,30 @@ CGenDefTbls::CGenDefTbls(string& sModelProtoName)
 
 }
 
-bool CGenDefTbls::getTableNameIdx(const string& TblName, int& idx)
-{
-	map<string, int>::iterator itNameMap = TranslateTblNameMap.find(TblName);
-	if (itNameMap == TranslateTblNameMap.end()) {
-		return false;
-	}
-	idx = itNameMap->second;
-	return true;
-}
 
 
 bool CGenDef::ModelInit(string sModelProtoName ) 
 {
-	ICanReplaceTbl.clear();
-	OCanReplaceTbl.clear();
-	NumInstancesTbl[0].clear();
-	NumInstancesTbl[1].clear();
-	MaxInstancesTbl[0].clear();
-	MaxInstancesTbl[1].clear();
-	InputTranslateTbl.clear();
-	OutputTranslateTbl.clear();
-	bCanReplace = false;
+	//CaffeFnInitData * InitData = new CaffeFnInitData;
 
-	gen_def = new CaffeGenDef;
-	
-	ifstream proto_ifs(sModelProtoName.c_str());
-	if (proto_ifs.is_open()) {
-		google::protobuf::io::IstreamInputStream* proto_input 
-			= new google::protobuf::io::IstreamInputStream(&proto_ifs);
-		bool bGood = true;
-		if (!google::protobuf::TextFormat::Parse(proto_input, gen_def)) {
-			cerr << "GenDataModelInit config file Parse failed for " << sModelProtoName << endl;
-			bGood = false;
-		}
-		delete proto_input;
-		if (!bGood) {
-			return false;
-		}
-	}
-	else {
-		cerr << "Error in GenDataModelInit. Model file " << sModelProtoName << " not found.\n";
-		return false;
-	}
-
-	return true;
-
-#if 0	
+//	CaffeFnHandle = NULL;
+//	CaffeFnOutHandle = NULL;
+//	TranslateTblPtrs.clear();
+//	VecTblPtrs.clear();
+//	TranslateTblNameMap.clear();
 	InputTranslateTbl.clear();
 	OutputTranslateTbl.clear();
 	FirstAccessFieldsIdx.clear();
 	VarNamesMap.clear();
 	DataTranslateTbl.clear();
 	DataFilterTbl.clear();
+	ICanReplaceTbl.clear();
+	OCanReplaceTbl.clear();
+	NumInstancesTbl[0].clear();
+	NumInstancesTbl[1].clear();
+	MaxInstancesTbl[0].clear();
+	MaxInstancesTbl[1].clear();
+	bCanReplace = false;
 	
 	gen_data = new CaffeGenData;
 	
@@ -283,119 +367,101 @@ bool CGenDef::ModelInit(string sModelProtoName )
 		return false;
 	}
 
+//	const string& CoreDir = gen_data->files_core_dir();
+//	string H5TrainListFileName = CoreDir + "data/train_list.txt";
+//	string H5TestListFileName = CoreDir + "data/test_list.txt";
+//	
+//	ofstream test_list(H5TestListFileName.c_str(), ofstream::trunc);
+//	ofstream train_list(H5TrainListFileName.c_str(), ofstream::trunc);
+
+//	NumVecTbls = gen_data->vec_tbls_size();
+//	
+//	for (int ivt = 0; ivt < gen_data->vec_tbls_size(); ivt++) {
+//		CaffeGenData::VecTbl vec_tbl = gen_data->vec_tbls(ivt);
+//		TranslateTblNameMap[vec_tbl.name()] = ivt;
+//		bool bThisTblIsTheVecTbl = false;
+//		if (vec_tbl.name() == gen_data->dep_name_vec_tbl()) {
+//			bThisTblIsTheVecTbl = true;
+//			DepNames.clear();
+//		}
+//		map<string, int>* pNameMap = new map<string, int>();
+//		TranslateTblPtrs.push_back(pNameMap);
+//		vector<vector<float> >* pVecTbl = new vector<vector<float> >();
+//		VecTblPtrs.push_back(pVecTbl);
+//		string VecTblPath = gen_data->vec_tbls_core_path() + vec_tbl.path() + "/OutputVec.txt";
+//		ifstream VecFile(VecTblPath.c_str());
+//		if (VecFile.is_open()) {
+//			string ln;
+//			int NumVecs;
+//			int NumValsPerVec;
+//			VecFile >> NumVecs;
+//			VecFile >> NumValsPerVec;
+////			if (bThisTblIsTheVecTbl) {
+////				pDepNames->resize(NumVecs);
+////			}
+//
+//			getline(VecFile, ln); // excess .n
+//			//while (!VecFile.eof()) {
+//			for (int ic = 0; ic < NumVecs; ic++) {
+//				getline(VecFile, ln, ' ');
+//				string w;
+//				w = ln;
+//				if (w.size() == 0) {
+//					cerr << "There should be as many items in the vec file as stated on the first line of file.\n";
+//					return false;
+//				}
+//				if (bThisTblIsTheVecTbl) {
+//					DepNames.push_back(w);
+//				}
+//				(*pNameMap)[w] = ic;
+//				pVecTbl->push_back(vector<float>());
+//				vector<float>& OneVec = pVecTbl->back();
+//				//vector<float>& OneVec = WordsVecs[iw];
+//				for (int iwv = 0; iwv < NumValsPerVec; iwv++) {
+//					if (iwv == NumValsPerVec - 1) {
+//						getline(VecFile, ln);
+//					}
+//					else {
+//						getline(VecFile, ln, ' ');
+//					}
+//					float wv;
+//					wv = ::atof(ln.c_str());
+//					OneVec.push_back(wv);
+//				}
+//			}
+//		}
+//	}
+//
+//	vector<vector<float> > * YesNoTbl = new vector<vector<float> >;
+//	YesNoTbl->push_back(vector<float>(1, 0.0f));
+//	YesNoTbl->push_back(vector<float>(1, 1.0f));
+//
+//	
+//	YesNoTblIdx = TranslateTblPtrs.size();
+//	TranslateTblNameMap["YesNoTbl"] = YesNoTblIdx;
+//	TranslateTblPtrs.push_back(NULL);
+//	VecTblPtrs.push_back(YesNoTbl);
 	return true;
-#endif // 0	
 }
 
-struct VarTbEl {
-	bool bDorW;
-	pair<int, int> R_DorW_ID;
-};
+#if 0
+void GenDataModelComplete(CGenDef * InitData)
+{
+	
+	//if (!CaffeFnHandle || !CaffeFnOutHandle) {
+	if (!InitData || !(InitData->gen_data))	 {
+		cerr << "GenDataModelComplete can only work if preceeded by a succesful call to GenDataModelInit.\n";
+		return;
+		
+	}
 
-
+	delete InitData;
+}
+#endif // 0
 
 bool CGenDef::ModelPrep()
 {
-	AccessFilterOrderTbl.clear();
-	map<string, int> var_tbl_idx_map;
-
-	// each pair in the table: first - idx of rec to access. second: idx of VarTbl to put it into
-	for (int iaf = 0; iaf < gen_def->access_fields_size(); iaf++) {
-		AccessFilterOrderTbl.push_back(make_pair(iaf, true));	
-		var_tbl_idx_map[gen_def->access_fields(iaf).var_name()] = iaf;
-		CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
-		access->set_var_idx(iaf);
-	}
-	
-	for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
-		CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
-		CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
-		left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
-		CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
-		right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
-		bool b_left_found = false;
-		bool b_right_found = false;
-		vector<pair<int, bool> >::iterator itOrderTbl = AccessFilterOrderTbl.begin();
-		for (;itOrderTbl != AccessFilterOrderTbl.end(); itOrderTbl++) {
-			pair<int, bool>& order_el = *itOrderTbl;
-			if (!order_el.second) {
-				continue;
-			}
-			const CaffeGenDef::DataAccess& access = gen_def->access_fields(order_el.first);
-			if (!b_left_found && (left_side->var_name_src() == access.var_name())) {
-				b_left_found = true;
-			}
-			if (!b_right_found && (right_side->var_name_src() == access.var_name())) {
-				b_right_found = true;
-			}
-			if (b_left_found && b_right_found) {
-				break;
-			}
-		}
-		if (!b_left_found || !b_right_found) {
-			cerr << "Error in GenDef proto file. Data Filter accesses a var name not in var table\n";
-			return false;
-		}
-		itOrderTbl++;
-		AccessFilterOrderTbl.insert(itOrderTbl, make_pair(idf, false));
-	}
-	
-	int num_input_vals = 0;
-	int num_output_vals = 0;
-	
-	InstanceCountTbl.resize( gen_def->net_values_size());
-
-	for (int inv = 0; inv < gen_def->net_values_size(); inv++) {
-		CaffeGenDef::NetValue* net_value = gen_def->mutable_net_values(inv);
-		int var_src_idx = var_tbl_idx_map[net_value->var_name_src()];
-		net_value->set_var_src_idx(var_src_idx);
-		int table_idx = -1;
-		if (!pGenDefTbls->getTableNameIdx((const string)net_value->vec_table_name(), table_idx)) {
-			cerr	<< "Error. Table name given in net value " 
-					<< (const string)net_value->vec_table_name() 
-					<< " not found in table directory\n.";
-		}
-		net_value->set_vec_table_idx(table_idx);
-		if (net_value->b_input()) {
-			num_input_vals++;
-			InputTranslateTbl.push_back(make_pair(var_src_idx, table_idx));
-		}
-		else {
-			num_output_vals++;
-			OutputTranslateTbl.push_back(make_pair(var_src_idx, table_idx));
-		}
-		if (net_value->has_max_instances()) {
-			map<string, int>* pTbl = TranslateTblPtrs[table_idx];
-			InstanceCountTbl[inv] = vector<int> (pTbl->size(), 0);
-		}
-	}
-
-	NumOutputNodesNeeded = -1;
-	if (gen_def->net_end_type() == CaffeGenDef::END_VALID) {
-		if (num_output_vals != 1) {
-			cerr << "For end type END_VALID, the number of output_field_translates must be exactly 1.\n";	
-			return false;
-		}
-		NumOutputNodesNeeded = 2;
-	}
-	else if (gen_def->net_end_type() == CaffeGenDef::END_ONE_HOT) {
-		if (num_output_vals != 1) {
-			cerr << "For end type END_ONE_HOT, the number of output_field_translates must be exactly 1.\n";	
-			return false;
-		}
-		map<string, int>* pTbl = TranslateTblPtrs[OutputTranslateTbl[0].second];
-		NumOutputNodesNeeded = pTbl->size();
-	}
-	else if (gen_def->net_end_type() == CaffeGenDef::END_MULTI_HOT) {
-		NumOutputNodesNeeded = 0;
-		for (int ift = 0; ift < num_output_vals; ift++) {
-			vector<vector<float> >* pTbl = VecTblPtrs[OutputTranslateTbl[ift].second];
-			NumOutputNodesNeeded += (*pTbl)[0].size();
-		}
-	}
-	return true;
-	
-#if 0
+	//CaffeGenData* gen_data = gen_data; // (CaffeGenData *)CaffeFnHandle;
 	// each pair in the table: first - idx of rec to access. second: idx of VarTbl to put it into
 	for (int idf = 0; idf < gen_data->data_fields_size(); idf++) {
 		const CaffeGenData::DataField& Field = gen_data->data_fields(idf);
@@ -484,6 +550,8 @@ bool CGenDef::ModelPrep()
 	}
 	
 	// for each pair in table: first - idx of VarTbl. second - index of translate tbl
+//	vector<pair<int, int> > InputTranslateTbl;
+//	vector<pair<int, int> > OutputTranslateTbl;
 	int OTranslateTableSize = -1;
 	for (int iBoth=0; iBoth<2; iBoth++) {
 		vector<pair<int, int> >* pTranslateTbl = &InputTranslateTbl;
@@ -570,7 +638,6 @@ bool CGenDef::ModelPrep()
 	}
 
 	return true;
-#endif // 0	
 }
 
 bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx) {
@@ -598,198 +665,15 @@ void  CGenModelRun::setReqTheOneOutput() {
 	}
 }
 
-bool CGenModelRun::DepMatchTest(const CaffeGenDef::DataAccess& data_access_rec, 
-								int isr, int DID, int isrBeyond, bool b_use_avail)
-{
-	if (isr < 0 || isr >= SentenceRec.size()) {
-		cerr << "Serious error!\n";
-		return false;
-	}
-	if (DID < 0 || DID >= SentenceRec[isr].Deps.size()) {
-		cerr << "Serious error!\n";
-		return false;
-	}
-	bool ret_avail = true;
-	DepRec& rec = SentenceRec[isr].Deps[DID];		
-	SDepRecAvail dep_avail(datConst); // default to all there
-	if (b_use_avail) {
-		dep_avail = SentenceAvailList[isr].Deps[DID];
-		if (dep_avail.iDep != datConst) {
-			if (	(dep_avail.iDep == datTheOne) 
-				&&	bReqTheOneOutput 
-				&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
-				if (data_access_rec.has_dep_type_to_match()) {
-					ret_avail = false; // datTheOne cannot match on a record that requires a specific dep name
-				}
-				else {
-					ret_avail = true;
-				}
-			}
-			else {
-				ret_avail = false;
-			}
-		}
-		else {
-			if (	bReqTheOneOutput 
-				&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
-				ret_avail = false;
-			}
-			else {
-				ret_avail = true;
-			}
-		}
-	}
-	
-	if (!ret_avail) {
-		return false;
-	}
-	string dep_name = GenDef.DepNames[rec.iDep];
-	if (data_access_rec.has_dep_type_to_match()) {
-		if 	(dep_name == data_access_rec.dep_type_to_match()) {
-			return true;
-		}
-		else {
-			return false;
-		}
-
-	}
-	else {
-		return true;
-	}
-
-	// can't get here
-	return false;
-}
-
-bool CGenModelRun::WordMatchTest(const CaffeGenDef::DataAccess& data_access_rec, 
-								int isr, int WID, int isrBeyond, bool b_use_avail)
-{
-	if (isr < 0 || isr >= SentenceRec.size()) {
-		cerr << "Serious error!\n";
-		return false;
-	}
-	if (WID < 0 || WID >= SentenceRec[isr].OneWordRec.size()) {
-		cerr << "Serious error!\n";
-		return false;
-	}
-	bool b_avail = true;
-	WordRec& rec = SentenceRec[isr].OneWordRec[WID];		
-	SWordRecAvail wrec_avail(datConst); // default to all there
-	if (data_access_rec.has_pos_to_match()) {
-		if (b_use_avail) {
-			wrec_avail = SentenceAvailList[isr].WordRecs[WID];
-			if (wrec_avail.POS != datConst) {
-				if (	(wrec_avail.POS == datTheOne) 
-					&&	bReqTheOneOutput 
-					&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
-					if (data_access_rec.has_dep_type_to_match()) {
-						b_avail = false; // datTheOne cannot match on a record that requires a specific dep name
-					}
-					else {
-						b_avail = true;
-					}
-				}
-				else {
-					b_avail = false;
-				}
-			}
-			else {
-				if (	bReqTheOneOutput 
-					&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
-					b_avail = false;
-				}
-				else {
-					b_avail = true;
-				}
-			}
-		}
-
-		if (!b_avail) {
-			return false;
-		}
-		if 	(rec.POS != data_access_rec.pos_to_match()) {
-			return false;
-		}
-
-	}
-
-	return true;
-}
-
-bool CGenModelRun::FilterTest(	const CaffeGenDef::DataFilter& data_filter,
-								vector<VarTblEl> var_tbl) {
-	string sl, sr; 
-	
-	for (int i_both = 0; i_both < 2; i_both++) {
-		string s;
-		const CaffeGenDef::DataFilterOneSide& one_side 
-				= (i_both ? data_filter.right_side() : data_filter.left_side());
-		VarTblEl& el = var_tbl[one_side.var_src_idx()];
-		int isr = el.R_DorW_ID.first;
-		if (el.bDorW) {
-			int DID = el.R_DorW_ID.second;
-			DepRec& rec = SentenceRec[isr].Deps[DID];		
-			switch (one_side.mt()) {
-				case CaffeGenDef::mtDEP_RDID:
-					s = gen_data_to_string(isr) + ":" + gen_data_to_string(DID);
-					break;
-				case CaffeGenDef::mtDEP_DEP_RWID:
-					s = gen_data_to_string(isr) + ":" + gen_data_to_string((int)rec.Dep);
-					break;
-				case CaffeGenDef::mtDEP_GOV_RWID:
-					s = gen_data_to_string(isr) + ":" + gen_data_to_string((int)rec.Gov);
-					break;
-				default:
-					cerr << "Error. Match type " << one_side.mt() << " requested for dep record\n";
-					break;
-			}
-		}
-		else {
-			int WID = el.R_DorW_ID.second;
-			WordRec& rec = SentenceRec[isr].OneWordRec[WID];		
-			switch (one_side.mt()) {
-				case CaffeGenDef::mtWORD_RWID:
-					s = gen_data_to_string(isr) + ":" + gen_data_to_string(WID);
-					break;
-				case CaffeGenDef::mtWORD_CORE:
-					s = rec.WordCore;
-					break;
-				case CaffeGenDef::mtWORD_WORD:
-					s = rec.Word;
-					break;
-				case CaffeGenDef::mtWORD_POS:
-					s = rec.POS;
-					break;
-				default:
-					cerr << "Error. Match type " << one_side.mt() << " requested for word record\n";
-					break;
-			}
-		}
-		if (i_both == 0) {
-			sl = s;
-		}
-		else {
-			sr = s;
-		}
-	}
-	if (sl == sr) return true;
-	
-	return false;
-}
-
-
 bool CGenModelRun::DoRun() {
 	DataForVecs.clear();
 	
+	vector<map<string, int>*>& TranslateTblPtrs = GenDef.TranslateTblPtrs;
 //	vector<vector<vector<float> >* >& VecTblPtrs = GenDef.VecTblPtrs;
 //	map<string, int>& TranslateTblNameMap = GenDef.TranslateTblNameMap;
-	//vector<string>& DepNames = GenDef.DepNames;
+	vector<string>& DepNames = GenDef.DepNames;
 	int YesNoTblIdx = GenDef.YesNoTblIdx;
-	vector<map<string, int>*>& TranslateTblPtrs = GenDef.TranslateTblPtrs;
-	vector<pair<int, bool> >& AccessFilterOrderTbl
-			= GenDef.getAccessFilterOrderTbl(); // if second is true, first is access message index else filter message
-
-	CaffeGenDef* gen_def = GenDef.getGenDef();
+	CaffeGenData* gen_data = GenDef.getGenData();
 
 	bool bUseAvail = (SentenceAvailList.size() > 0);
 
@@ -818,225 +702,8 @@ bool CGenModelRun::DoRun() {
 	// random, IData, valid, OData
 //	vector<SDataForVecs > DataForVecs;
 	int NumCandidates = 0;
-
-
-	for (int isr = 0; isr < SentenceRec.size(); isr++) {
-		int num_vars = GenDef.gen_def->access_fields_size();
-		vector<vector<VarTblEl> > VarTblAllOptions(1, vector<VarTblEl>(num_vars));
-		vector<vector <VarTblEl> > VarTblAllNewOptions;
-
-		SSentenceRec rec = SentenceRec[isr];
-		for (int iOrder = 0; iOrder < AccessFilterOrderTbl.size(); iOrder++) {
-			VarTblAllNewOptions.clear();
-			if (AccessFilterOrderTbl[iOrder].second) {
-				const CaffeGenDef::DataAccess& data_access_rec 
-						= gen_def->access_fields(AccessFilterOrderTbl[iOrder].first);
-
-				if (data_access_rec.access_type() == CaffeGenDef::ACCESS_TYPE_DEP ) {
-					for (int idep = 0; idep < rec.Deps.size(); idep++) { // actually loop through this sentence's recs and the next NumSentenceRecsToSearch  sentences using isrecBeyond
-						/* const CaffeGenDef::DataAccess& data_access_rec, 
-								int isr, int DID, int isrBeyond, bool b_use_avai */
-						if (DepMatchTest(data_access_rec, isr, idep, 0, bUseAvail) ) {
-							for (int iOption = 0; iOption < VarTblAllOptions.size(); iOption++) {
-								vector <VarTblEl>& VarTblSrc = VarTblAllOptions[iOption];
-								// go through checking that this node is not already in the var table
-								// in the future an option in DataAccess might less us override this check
-								bool b_dup = false;
-								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
-									if (	VarTblSrc[i_var].bDorW 
-										&&	VarTblSrc[i_var].R_DorW_ID.first == isr 
-										&&	VarTblSrc[i_var].R_DorW_ID.second == idep) {
-										b_dup = true;
-										break;
-									}
-								}
-								if (b_dup) continue;
-								VarTblAllNewOptions.push_back(VarTblSrc);
-								vector <VarTblEl>& VarTblNew = VarTblAllNewOptions.back();
-								VarTblNew[data_access_rec.var_idx()] = (VarTblEl(true, isr, idep));
-							}
-						}
-					}
-				}	
-				else if (data_access_rec.access_type() == CaffeGenDef::ACCESS_TYPE_WORD ) {
-					// for AccessType WordRec and any other in the same enum 
-					// do the same as for deprec
-					for (int iwrec = 0; iwrec < rec.OneWordRec.size(); iwrec++) { 					
-						if (WordMatchTest(data_access_rec, isr, iwrec, 0, bUseAvail) ) {
-							for (int iOption = 0; iOption < VarTblAllOptions.size(); iOption++) {
-								vector <VarTblEl>& VarTblSrc = VarTblAllOptions[iOption];
-								// go through checking that this node is not already in the var table
-								// in the future an option in DataAccess might less us override this check
-								bool b_dup = false;
-								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
-									if (	!VarTblSrc[i_var].bDorW 
-										&&	VarTblSrc[i_var].R_DorW_ID.first == isr 
-										&&	VarTblSrc[i_var].R_DorW_ID.second == iwrec) {
-										b_dup = true;
-										break;
-									}
-								}
-								if (b_dup) continue;
-								VarTblAllNewOptions.push_back(VarTblSrc);
-								vector <VarTblEl>& VarTblNew = VarTblAllNewOptions.back();
-								VarTblNew[data_access_rec.var_idx()] = (VarTblEl(false, isr, iwrec));
-							}
-						}
-					}
-					
-				}
-				else {
-				}
-			}	
-			else { // if (!AccessFilterOrderTbl[iOrder].second) { 
-				const CaffeGenDef::DataFilter& filter
-						= GenDef.gen_def->data_filters(AccessFilterOrderTbl[iOrder].first);
-				for (int iOption = 0; iOption < VarTblAllOptions.size(); iOption++) {
-					vector <VarTblEl>& VarTblSrc = VarTblAllOptions[iOption];
-					if (FilterTest(filter, VarTblSrc)) {
-					//if (access(DataFilterRec.LeftSide, VarTblAllOptions[iOption]) == access(DataFilterRec.RightSide, VarTblAllOptions[iOption])) {
-						
-						VarTblAllNewOptions.push_back(VarTblSrc);
-					}
-				}
-			}
-
-			VarTblAllOptions.clear();
-			VarTblAllOptions = VarTblAllNewOptions;
-			if (VarTblAllOptions.size() == 0) {
-				break;
-			}
-		}	
-
-		for (int i_option = 0; i_option < VarTblAllOptions.size(); i_option++) {
-			vector<int> IData;
-			vector<int> OData;
-			string s;
-			vector<VarTblEl>& var_tbl = VarTblAllOptions[i_option];
-			bool b_all_found = true;
-			for (int inv = 0; inv < GenDef.gen_def->net_values_size(); inv++) {
-				const CaffeGenDef::NetValue& val = GenDef.gen_def->net_values(inv);
-				vector<int>& Data =  (val.b_input() ? IData : OData);
-				if (!val.b_input() && bReqTheOneOutput) {
-					VarTblEl& el = var_tbl[val.var_src_idx()];
-					int isr = el.R_DorW_ID.first;
-					if (el.bDorW) {
-						int DID = el.R_DorW_ID.second;
-						SDepRecAvail& dep_avail = SentenceAvailList[isr].Deps[DID];
-						if (dep_avail.iDep != datTheOne) {
-							b_all_found = false;
-							break;
-						}
-					}
-					else {
-						int WID = el.R_DorW_ID.second;
-						SWordRecAvail& wrec_avail = SentenceAvailList[isr].WordRecs[WID];
-						DataAvailType dat;
-						switch (val.vet()) {
-							case CaffeGenDef::vetPOS:
-								dat = wrec_avail.POS;
-								break;
-							case CaffeGenDef::vetWord:
-								dat = wrec_avail.Word;
-								break;
-							case CaffeGenDef::vetWordCode: // misspelled. Deal with it!
-								dat = wrec_avail.WordCore;
-								break;
-							default:
-								cerr << "Error. Requesting a dep field from a word rec.\n";
-								return false;
-
-						}
-						if (dat != datTheOne) {
-							b_all_found = false;
-							break;
-						}
-				}
-					
-					cerr << "Found the one!\n";
-					continue;
-				}
-				if (val.vec_table_idx() == YesNoTblIdx) {
-					Data.push_back(1);
-				}
-				else {
-					VarTblEl& el = var_tbl[val.var_src_idx()];
-					int isr = el.R_DorW_ID.first;
-					if (el.bDorW) {
-						int DID = el.R_DorW_ID.second;
-						if (!bUseAvail || val.b_input()) {
-							if ((DID < 0) || (DID >= SentenceRec[isr].Deps.size())) {
-								cerr << "Error: Unxepected access of dep record out of bounds.\n";
-								return false;
-							}
-							DepRec& rec = SentenceRec[isr].Deps[DID];		
-							switch (val.vet()) {
-								case CaffeGenDef::vetDepName:
-									s = GenDef.DepNames[rec.iDep];
-									break;
-								default:
-									cerr << "Error. Requesting a word field from a dep rec.\n";
-									return false;
-
-							}
-						}
-					}
-					else { // if (word)
-						int WID = el.R_DorW_ID.second;
-						if (!bUseAvail || val.b_input()) {
-							if ((WID < 0) || (WID >= SentenceRec[isr].OneWordRec.size())) {
-								cerr << "Error: Unxepected access of word record out of bounds.\n";
-								return false;
-							}
-							WordRec& rec = SentenceRec[isr].OneWordRec[WID];		
-							switch (val.vet()) {
-								case CaffeGenDef::vetPOS:
-									s = rec.POS;
-									break;
-								case CaffeGenDef::vetWord:
-									s = rec.Word;
-									break;
-								case CaffeGenDef::vetWordCode: // misspelled. Deal with it!
-									s = rec.WordCore;
-									break;
-								default:
-									cerr << "Error. Requesting a dep field from a word rec.\n";
-									return false;
-
-							}
-						}
-					}
-					map<string, int>* mapp = TranslateTblPtrs[val.vec_table_idx()];
-					map<string, int>::iterator itm = mapp->find(s);
-
-					if (itm == mapp->end()) {
-						b_all_found = false;
-						break;
-					}
-					if (val.has_max_instances()) {
-						if (GenDef.InstanceCountTbl[inv][itm->second] >= val.max_instances()) {
-							b_all_found = false;
-							break;
-						}
-						GenDef.InstanceCountTbl[inv][itm->second]++;
-					}
-
-					Data.push_back(itm->second);
-				}
-			}
-			if (!b_all_found) {
-				continue;
-			}
-			DataForVecs.push_back(SDataForVecs(rand(), IData, true, OData));
-		}
-	}
-		
-
-#if 0	
-	vector<map<string, int>*>& TranslateTblPtrs = GenDef.TranslateTblPtrs;
-	CaffeGenData* gen_data = GenDef.getGenData();
-
-	//	int * po = &(OutputTranslateTbl[0].second);
+	
+//	int * po = &(OutputTranslateTbl[0].second);
 	vector<vector<string> > VarTblsForGo; 
 
 	bool bContinueWithMainLoop = true;
@@ -1498,7 +1165,7 @@ bool CGenModelRun::DoRun() {
 //		NumLabelVals += (*VecTblPtrs[ott.second])[0].size();
 //	}
 
-#endif // 0
+
 	return true;
 }
 

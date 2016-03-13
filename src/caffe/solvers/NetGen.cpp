@@ -170,9 +170,10 @@ private:
 
 class NetGen {
 public:
-	NetGen(string config_file_name) {
+	NetGen(string config_file_name, int a_max_no_progress) {
 		bInit_ = false; 
 		config_file_name_ = config_file_name;
+		max_no_progress = a_max_no_progress;
 	}
 
 	void PreInit();
@@ -197,6 +198,7 @@ private:
 	string word_vector_file_name_;
 	int words_per_input_;
 	string config_file_name_;
+	int max_no_progress;
 	
 	int GetClosestWordIndex(vector<float>& VecOfWord, int num_input_vals, 
 							vector<pair<float, int> >& SortedBest,
@@ -894,7 +896,9 @@ void NetGen::Init() {
 	int num_fails = 0;
 	float best_loss = FLT_MAX;
 	//boost::timer::cpu_timer progress_timer;
-	const int max_no_progress = 90;
+	//const int max_no_progress = 3;
+	float pre_loss = ng_net->TestOnly();
+	std::cerr << "Loss starting at " << pre_loss << ".\n";
 	bool b_test_once = true;
 
 	while(true) {
@@ -1173,17 +1177,19 @@ bool NetGen::Classify() {
  
 #ifdef CAFFE_NET_GEN_MAIN
 int main(int argc, char** argv) {
-//	if (argc != 3) {
-//		std::cerr << "Usage: " << argv[0]
-//				  << " deploy.prototxt network.caffemodel" << std::endl;
-//		return 1;
-//	 }
+	if (argc != 2) {
+		std::cerr << "Usage: " << argv[0]
+				  << " <gengen prototxt filename>" << std::endl;
+		return 1;
+	 }
 
 	FLAGS_log_dir = "/devlink/caffe/log";
 	::google::InitGoogleLogging(argv[0]);
   
 	
-	NetGen generator("/devlink/caffe/data/NetGen/gengen1455787125/data/config.prototxt");
+	//NetGen generator("/devlink/caffe/data/NetGen/gengen1455787125/data/config.prototxt");
+	// second arg, how many tries without progress
+	NetGen generator(argv[1], 3);
 	vector<shared_ptr<NGNet> > nets;
 	generator.PreInit();
 	generator.Init();
@@ -1191,4 +1197,4 @@ int main(int argc, char** argv) {
 	
 }
 #endif // CAFFE_MULTINET_MAIN
-  
+    

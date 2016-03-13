@@ -76,6 +76,8 @@
               <in>GenData.pb.h</in>
               <in>GenDataTbls.pb.cc</in>
               <in>GenDataTbls.pb.h</in>
+              <in>GenDef.pb.cc</in>
+              <in>GenDef.pb.h</in>
               <in>GenOutput.pb.cc</in>
               <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>
@@ -174,6 +176,8 @@
               <in>GenData.pb.h</in>
               <in>GenDataTbls.pb.cc</in>
               <in>GenDataTbls.pb.h</in>
+              <in>GenDef.pb.cc</in>
+              <in>GenDef.pb.h</in>
               <in>GenOutput.pb.cc</in>
               <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>
@@ -272,6 +276,8 @@
               <in>GenData.pb.h</in>
               <in>GenDataTbls.pb.cc</in>
               <in>GenDataTbls.pb.h</in>
+              <in>GenDef.pb.cc</in>
+              <in>GenDef.pb.h</in>
               <in>GenOutput.pb.cc</in>
               <in>GenOutput.pb.h</in>
               <in>GenSeed.pb.cc</in>

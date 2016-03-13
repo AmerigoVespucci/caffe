@@ -18,6 +18,7 @@
 #include "H5Cpp.h"
 
 #include "caffe/proto/GenData.pb.h"
+#include "caffe/proto/GenDef.pb.h"
 #include "caffe/GenData.hpp"
 
 #ifndef H5_NO_NAMESPACE
@@ -27,6 +28,7 @@
 using namespace caffe;  // NOLINT(build/namespaces)
 using std::string;
 namespace fs = boost::filesystem;
+const string WORD_VEC_TBL_NAME = "Words6000";				
 
 
 typedef unsigned long long u64;
@@ -107,6 +109,7 @@ private:
 
 	void Preprocess(const cv::Mat& img,
 					std::vector<cv::Mat>* input_channels);
+	void AddModel(string model_file_name);
 
 private:
 	bool bInit_;
@@ -140,6 +143,7 @@ public:
     }
     
 	void DoGen(string& data_core_dir);
+	string& getNewModelFileName() { return new_model_file_name; }
     
 private:
 
@@ -148,6 +152,7 @@ private:
     vector<SSentenceRecAvail>& SentenceAvailList; 
     vector<DataAvailType>& CorefAvail;  
 	vector<string>& DepNames;
+	string new_model_file_name;
 };
 
 template <typename T>
@@ -161,6 +166,164 @@ string gen_multinet_to_string ( T Number )
 
 void CGenGen::DoGen(string& data_core_dir) {
 	string gen_name = string("gengen") + gen_multinet_to_string(time(NULL));
+	CaffeGenDef gen_data;
+
+	gen_data.set_name(gen_name);
+	gen_data.set_files_core_dir(data_core_dir + string("NetGen/") + gen_name + "/");
+	gen_data.set_test_list_file_name("data/test");
+	gen_data.set_train_list_file_name("data/train");
+	gen_data.set_net_end_type(CaffeGenDef::END_ONE_HOT);
+	gen_data.set_proto_file_name("models/train.prototxt");
+	gen_data.set_model_file_name("models/g_best.caffemodel");
+	gen_data.set_config_file_name("data/config.prototxt");
+	gen_data.set_netgen_output_file_name("models/netgen_output.prototxt");
+	gen_data.set_num_accuracy_candidates(1);
+
+	int iVarName = 0;
+	//vector<pair<string, string> > InputFields;
+	for (int irec = 0; irec < SentenceRec.size(); irec++) {
+		vector<pair<int, string> > gov_one_siders;
+		vector<pair<int, string> > dep_one_siders;
+		
+		vector<DepRec>& deps = SentenceRec[irec].Deps;
+		for (int iidep = 0; iidep < deps.size(); iidep++) {
+			string sVarName = string("DepType") 
+					+ gen_multinet_to_string(iVarName++);
+			CaffeGenDef::DataAccess * access_field = gen_data.add_access_fields();
+			access_field->set_var_name(sVarName);
+			access_field->set_access_type(CaffeGenDef::ACCESS_TYPE_DEP);
+			int gov = (int)(signed char)deps[iidep].Gov;
+			if (gov >= 0) {
+				gov_one_siders.push_back(make_pair(iidep, sVarName));
+			}
+			int dep = (int)(signed char)deps[iidep].Dep;
+			if (dep >= 0) {
+				dep_one_siders.push_back(make_pair(iidep, sVarName));
+			}
+			CaffeGenDef::NetValue * net_value = gen_data.add_net_values();
+			string s_net_value_var_name = string("NetValue") 
+					+ gen_multinet_to_string(iVarName++);
+			net_value->set_var_name(s_net_value_var_name);
+			net_value->set_var_name_src(sVarName);
+			net_value->set_vet(CaffeGenDef::vetDepName);
+			if (SentenceAvailList[irec].Deps[iidep].iDep == datConst) {
+				int iDepType = (int)(signed char)(deps[iidep].iDep);
+				//InputFields.push_back(make_pair(sVarName, "DepVecTbl")); // because we are iterating dep recs
+				if ((iDepType < 0) || (iDepType >= DepNames.size())) {
+					::google::protobuf::RepeatedPtrField< CaffeGenDef::DataAccess >*
+							access_fields = gen_data.mutable_access_fields();
+					access_fields->RemoveLast();
+					continue;
+				}
+				string& DepTypeName = DepNames[iDepType];
+				access_field->set_dep_type_to_match(DepTypeName);
+				net_value->set_b_input(true);
+				net_value->set_vec_table_name("DepVecTbl");
+//				CaffeGenData::DataFilter * data_filter = gen_data.add_data_filters();
+//				data_filter->set_var_name(sVarName);
+//				data_filter->set_match_string(DepTypeName);
+			}
+			else if (SentenceAvailList[irec].Deps[iidep].iDep == datTheOne) {
+				net_value->set_b_input(false);
+				net_value->set_vec_table_name("DepNumTbl"); // because the output is a dep name but its one hot so we use a num tbl
+			}
+			else {
+				::google::protobuf::RepeatedPtrField< CaffeGenDef::DataAccess >*
+						access_fields = gen_data.mutable_access_fields();
+				access_fields->RemoveLast();
+				continue;
+			}
+		}
+		
+		vector<WordRec>& wrecs = SentenceRec[irec].OneWordRec;
+		for (int iwrec = 0; iwrec < wrecs.size(); iwrec++) {
+			string sVarName = string("POS") 
+					+ gen_multinet_to_string(iVarName++);
+			CaffeGenDef::DataAccess * access_field = gen_data.add_access_fields();
+			access_field->set_var_name(sVarName);
+			access_field->set_access_type(CaffeGenDef::ACCESS_TYPE_WORD);
+			CaffeGenDef::NetValue * net_value = gen_data.add_net_values();
+			string s_net_value_var_name = string("NetValue") 
+					+ gen_multinet_to_string(iVarName++);
+			net_value->set_var_name(s_net_value_var_name);
+			net_value->set_var_name_src(sVarName);
+			net_value->set_vet(CaffeGenDef::vetPOS);
+			for (int iBoth= 0; iBoth < 2; iBoth++) {
+				vector<pair<int, string> >& one_siders = (iBoth ? dep_one_siders : gov_one_siders);
+				CaffeGenDef::MatchType mt = CaffeGenDef::mtDEP_GOV_RWID;
+				if (iBoth == 1) {
+					mt = CaffeGenDef::mtDEP_DEP_RWID;
+				}
+				for (int ios = 0; ios < one_siders.size(); ios++) {
+					DepRec& dep = SentenceRec[irec].Deps[one_siders[ios].first];
+					int WID = (iBoth ? dep.Dep : dep.Gov);
+					if (WID != iwrec) {
+						continue;
+					}
+					CaffeGenDef::DataFilter * data_filter = gen_data.add_data_filters();
+					// allocate and pass to structure thereby passing (de)allocation responsibility
+					CaffeGenDef::DataFilterOneSide * left_side = new CaffeGenDef::DataFilterOneSide;
+					left_side->set_var_name_src(one_siders[ios].second);
+					left_side->set_mt(mt);
+					data_filter->set_allocated_left_side(left_side);
+					//do right side
+					CaffeGenDef::DataFilterOneSide * right_side = new CaffeGenDef::DataFilterOneSide;
+					right_side->set_var_name_src(sVarName);
+					right_side->set_mt(CaffeGenDef::mtWORD_RWID);
+					data_filter->set_allocated_right_side(right_side);
+				}
+			}
+			if (SentenceAvailList[irec].WordRecs[iwrec].POS == datConst) {
+				string sPOS = wrecs[iwrec].POS;
+				access_field->set_pos_to_match(sPOS);
+				net_value->set_b_input(true);
+				net_value->set_vec_table_name("POSVecTbl"); // WORD_VEC_TBL_NAME
+			}
+			else if (SentenceAvailList[irec].WordRecs[iwrec].POS == datTheOne) {
+				net_value->set_b_input(false);
+				net_value->set_vec_table_name("POSNumTbl");
+				gen_data.set_net_end_type(CaffeGenDef::END_ONE_HOT);
+			}
+			else {
+				cerr << "Error. Unknown option for availability of word rec\n";
+				continue;
+			}
+		}
+	}
+
+	{
+		const string ProtoCoreDir = data_core_dir + "GenGen/";
+		const string fname = ProtoCoreDir + gen_name + ".prototxt";
+		ofstream gengen_ofs(fname.c_str());
+		google::protobuf::io::OstreamOutputStream* gengen_output 
+			= new google::protobuf::io::OstreamOutputStream(&gengen_ofs);
+		//ofstream f_config(ConfigFileName); // I think this one is wrong
+		if (gengen_ofs.is_open()) {
+			google::protobuf::TextFormat::Print(gen_data, gengen_output);
+
+		}
+		delete gengen_output;
+		new_model_file_name = fname;
+	}
+
+	const string NetGenCoreDir = data_core_dir + "NetGen/";
+	const string dname = NetGenCoreDir + gen_name;
+	fs::path dir(dname);
+	if (!fs::create_directory(fs::path (dname))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+	const string dname_models = dname + "/models";
+	if (!fs::create_directory(fs::path (dname_models))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+	const string dname_data = dname + "/data";
+	if (!fs::create_directory(fs::path (dname_data))) {
+		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
+		return;
+	}
+#ifdef STILL_TO_PROCESS
 	CaffeGenData gen_data;
 	gen_data.set_name(gen_name);
 	gen_data.set_iterate_type(CaffeGenData::ITERATE_DEP);
@@ -174,17 +337,6 @@ void CGenGen::DoGen(string& data_core_dir) {
 	gen_data.set_config_file_name("data/config.prototxt");
 	gen_data.set_netgen_output_file_name("models/netgen_output.prototxt");
 	gen_data.set_num_accuracy_candidates(1);
-//	gen_data.set_vec_tbls_core_path("/devlink/caffe/data/tables/");
-//	CaffeGenData::VecTbl * vec_tbl = gen_data.add_vec_tbls();
-//	vec_tbl->set_name("DepVecTbl");
-//	vec_tbl->set_path("DepOneHot");
-//	vec_tbl = gen_data.add_vec_tbls();
-//	vec_tbl->set_name("POSVecTbl");
-//	vec_tbl->set_path("POSOneHot");
-//	vec_tbl = gen_data.add_vec_tbls();
-//	vec_tbl->set_name("POSNumTbl");
-//	vec_tbl->set_path("POSNum");
-//	gen_data.set_dep_name_vec_tbl("DepVecTbl");
 	int iVarName = 0;
 	vector<pair<string, string> > InputFields;
 	for (int irec = 0; irec < SentenceRec.size(); irec++) {
@@ -215,16 +367,35 @@ void CGenGen::DoGen(string& data_core_dir) {
 			else {
 				continue;
 			}
-			if (	(deps[iidep].Dep != -1) 
-				&&	(SentenceAvailList[irec].Deps[iidep].Dep == datConst)) {
-				
-				sVarName = string("Dep") 
-						+ gen_multinet_to_string(iVarName++);
-				data_field = gen_data.add_data_fields();
-				data_field->set_var_name(sVarName);
-				data_field->set_field_type(CaffeGenData::FIELD_TYPE_DEP_RWID);
-				int WID = (int)(signed char)deps[iidep].Dep;
-				
+			for (int i_both = 0; i_both < 2; i_both++) {
+				int WID = -1;
+				if (i_both == 0) {
+					if (	(deps[iidep].Gov != (uchar)-1) 
+						&&	(SentenceAvailList[irec].Deps[iidep].Gov == datConst)) {
+
+						sVarName = string("Gov") 
+								+ gen_multinet_to_string(iVarName++);
+						data_field = gen_data.add_data_fields();
+						data_field->set_var_name(sVarName);
+						data_field->set_field_type(CaffeGenData::FIELD_TYPE_GOV_RWID);
+						WID = (int)(signed char)deps[iidep].Gov;
+					}
+				}
+				else {
+					if (	(deps[iidep].Dep != -1) 
+						&&	(SentenceAvailList[irec].Deps[iidep].Dep == datConst)) {
+
+						sVarName = string("Dep") 
+								+ gen_multinet_to_string(iVarName++);
+						data_field = gen_data.add_data_fields();
+						data_field->set_var_name(sVarName);
+						data_field->set_field_type(CaffeGenData::FIELD_TYPE_DEP_RWID);
+						WID = (int)(signed char)deps[iidep].Dep;
+					}
+				}
+				if (WID == -1) {
+					continue;
+				}
 				CaffeGenData::DataTranslate * data_translate = gen_data.add_data_translates();
 				data_translate->set_translate_type(CaffeGenData::DATA_TRANSLATE_RWID_TO_WORD);
 				data_translate->set_match_name(sVarName);
@@ -235,7 +406,7 @@ void CGenGen::DoGen(string& data_core_dir) {
 				SentenceRec[irec].OneWordRec[WID].POS;
 				DataAvailType dat = SentenceAvailList[irec].WordRecs[WID].POS;
 				if (dat == datConst) {
-					
+					InputFields.push_back(make_pair(sVarName, "POSVecTbl")); // because we are iterating dep recs
 				}
 				else if (dat == datTheOne) {
 					CaffeGenData::FieldTranslate * field_translate 
@@ -256,35 +427,8 @@ void CGenGen::DoGen(string& data_core_dir) {
 		field_translate->set_var_name(InputFields[iin].first);
 		field_translate->set_table_name(InputFields[iin].second); // integer output tables for POS, which is what we're looking for
 	}
-	const string ProtoCoreDir = data_core_dir + "GenGen/";
-	const string fname = ProtoCoreDir + gen_name + ".prototxt";
-	ofstream gengen_ofs(fname.c_str());
-	google::protobuf::io::OstreamOutputStream* gengen_output 
-		= new google::protobuf::io::OstreamOutputStream(&gengen_ofs);
-	//ofstream f_config(ConfigFileName); // I think this one is wrong
-	if (gengen_ofs.is_open()) {
-		google::protobuf::TextFormat::Print(gen_data, gengen_output);
-		
-	}
-	delete gengen_output;
 
-	const string NetGenCoreDir = data_core_dir + "NetGen/";
-	const string dname = NetGenCoreDir + gen_name;
-	fs::path dir(dname);
-	if (!fs::create_directory(fs::path (dname))) {
-		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
-	}
-	const string dname_models = dname + "/models";
-	if (!fs::create_directory(fs::path (dname_models))) {
-		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
-	}
-	const string dname_data = dname + "/data";
-	if (!fs::create_directory(fs::path (dname_data))) {
-		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
-	}
+#endif // #ifdef STILL_TO_PROCESS
 	
 }
 
@@ -345,6 +489,29 @@ Blob<float>* SingleNet::GetVec(bool b_top, int layer_idx, int branch_idx)
 	}
 }
 
+void MultiNet::AddModel(string model_file_name)
+{
+	const bool cb_model_owns_tbls = true;
+	model_data_arr_.push_back(SModelData());
+	SModelData& model_data = model_data_arr_.back();
+
+	CGenDef * init_data = new CGenDef(tbls_data_, !cb_model_owns_tbls);
+
+	if (	!init_data->ModelInit(model_file_name) 
+		||	!init_data->ModelPrep()) {
+		delete init_data;
+		model_data_arr_.pop_back();
+		return;
+	}
+	model_data.NetGenData = init_data;
+	// extract these from the actual model!!!
+	model_data.input_layer_name_ = "data";
+	model_data.output_layer_name_ = "squash3";
+	model_data.model_file_name_ = init_data->getGenDef()->files_core_dir() + init_data->getGenDef()->proto_file_name();
+	model_data.trained_file_name_ = init_data->getGenDef()->files_core_dir() + init_data->getGenDef()->model_file_name();
+	
+}
+
 void MultiNet::PreInit()
 {
 #ifdef CPU_ONLY
@@ -355,7 +522,6 @@ void MultiNet::PreInit()
 	
 	string sModelDir = data_core_dir_ + "GenGen";
 	string sTblModelsFile = "/TblDefs/tbls.prototxt";
-	const bool cb_model_owns_tbls = true;
 	
 	string fname = sModelDir + sTblModelsFile;
 	tbls_data_ = new CGenDefTbls (fname);
@@ -371,23 +537,7 @@ void MultiNet::PreInit()
 			if (fs::is_regular_file(dir_iter->status()) ) {
 				if (dir_iter->path().extension() == ".prototxt") {
 					std::cerr << dir_iter->path() << std::endl;
-					model_data_arr_.push_back(SModelData());
-					SModelData& model_data = model_data_arr_.back();
-					
-					CGenDef * init_data = new CGenDef(tbls_data_, !cb_model_owns_tbls);
-
-					if (	!init_data->ModelInit(dir_iter->path().c_str()) 
-						||	!init_data->ModelPrep()) {
-						delete init_data;
-						return;
-					}
-					model_data.NetGenData = init_data;
-					// extract these from the actual model!!!
-					model_data.input_layer_name_ = "data";
-					model_data.output_layer_name_ = "squash3";
-					model_data.model_file_name_ = init_data->getGenData()->files_core_dir() + init_data->getGenData()->proto_file_name();
-					model_data.trained_file_name_ = init_data->getGenData()->files_core_dir() + init_data->getGenData()->model_file_name();
-
+					AddModel(dir_iter->path().c_str());
 				}
 				
 			}
@@ -399,6 +549,12 @@ void MultiNet::PreInit()
 //  }
 	}
 }
+
+enum ETheOneType {
+	totPOS,
+	totWord,
+	totDepName,
+};
 
 void MultiNet::Init(	vector<SingleNet>& nets,
 						const string& word_file_name,
@@ -429,48 +585,88 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 	SRecAvail.Deps.push_back(SDepRecAvail());
 	SDepRecAvail& DepAvail = SRecAvail.Deps.back();
 	DepAvail.iDep = datConst;
-	DepAvail.Gov = datNotSet;
+	DepAvail.Gov = datConst;
 	DepAvail.Dep = datConst;
 	SWordRecAvail& WRecAvail = SRecAvail.WordRecs.back();
 	WRecAvail.POS = datTheOne;
+	int i_srec_the_one = 0;
+	int i_wid_the_one = 0;
+	int i_did_the_one = -1;
+	ETheOneType tot = totPOS;
+	
 	
 	
 	p_nets_ = &nets;
 
 	CGenGen GenGen(	SentenceList, CorefSoFar, SentenceAvailList, CorefAvail, 
 					tbls_data_->getDepNamesTbl());
-	GenGen.DoGen(data_core_dir_);
 	
-	for (int in = 0; in < nets.size(); in++) {
-		SModelData& model_data = model_data_arr_[in];
+	bool bKeepGoing = true;
+	bool b_pick_last_net = false;
+	
+	vector<SDataForVecs > pre_vec_net_data;
+	
+	while (bKeepGoing) {
+		int i_net_chosen = -1;
+		for (int in = 0; in < nets.size(); in++) {
+			if (b_pick_last_net && (in < (nets.size() - 1) )) {
+				continue;
+			}
+			b_pick_last_net = false; 
+			
+			SModelData& model_def = model_data_arr_[in];
 
+			//int NumOutputNodesNeeded = -1;
+
+			CGenModelRun GenModelRun(	*model_def.NetGenData, SentenceList, CorefSoFar, 
+										SentenceAvailList, CorefAvail);
+
+			GenModelRun.setReqTheOneOutput();
+
+			if (!GenModelRun.DoRun()) {
+				return;
+			}
+
+			vector<SDataForVecs >& DataForVecs = GenModelRun.getDataForVecs();
+
+			if (DataForVecs.size() == 0) {
+				continue;
+			}
+
+			if (DataForVecs.size() != 1) {
+				cerr << "Not clear how there could be more than one records for the one. Please investigate\n";
+				continue;
+			}
+			
+			i_net_chosen = in;
+			pre_vec_net_data = DataForVecs;
+			break;
+		}
 		
+		if (i_net_chosen == -1) {
+			GenGen.DoGen(data_core_dir_);
+			
+			// run gotit2
+			// run netgen
+			// add new net to nets
+			break; // remove
+			// go back and try current sentence on last item of list
+			string& new_net_file_name = GenGen.getNewModelFileName();
+			AddModel(new_net_file_name);
+			b_pick_last_net = true;
+			continue;
+		}
+
+		// if fall through to here, a net was chosen to predict datTheOne
+		
+		SingleNet& net = nets[i_net_chosen];
+		net.Init();
+
+		SModelData& model_data = model_data_arr_[i_net_chosen];
+
+
 		vector<pair<int, int> >& InputTranslateTbl = model_data.NetGenData->getInputTranslateTbl();
 		vector<pair<int, int> > OutputTranslateTbl = model_data.NetGenData->getOutputTranslateTbl();
-		//int NumOutputNodesNeeded = -1;
-
-		CGenModelRun GenModelRun(	*model_data.NetGenData, SentenceList, CorefSoFar, 
-									SentenceAvailList, CorefAvail);
-		
-		GenModelRun.setReqTheOneOutput();
-
-		if (!GenModelRun.DoRun()) {
-			return;
-		}
-
-		vector<SDataForVecs >& DataForVecs = GenModelRun.getDataForVecs();
-		
-		if (DataForVecs.size() == 0) {
-			continue;
-		}
-		
-		if (DataForVecs.size() != 1) {
-			cerr << "Not clear how there could be more than one records for the one. Please investigate\n";
-			continue;
-		}
-
-		SingleNet& net = nets[in];
-		net.Init();
 		
 		vector<pair<string, vector<float> > > VecArr;
 		vector<vector<vector<float> >* >& VecTblPtrs = model_data.NetGenData->getVecTblPtrs();
@@ -483,7 +679,7 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 		float* p_in = predict_input_layer->mutable_cpu_data();
 		float * ppd = p_in;
 		
-		vector<int>& IData = (DataForVecs[0].IData);
+		vector<int>& IData = (pre_vec_net_data[0].IData);
 				
 		for (int ii = 0; ii < InputTranslateTbl.size(); ii++) {
 			pair<int, int>& itt = InputTranslateTbl[ii];
@@ -507,7 +703,7 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 		pair<int, int>& ott = OutputTranslateTbl[0]; // there may only be one output
 		vector<vector<float> > vec_for_one_hot;
 		vector<vector<float> >* p_lookup_vec = VecTblPtrs[ott.second];
-		if (model_data.NetGenData->getGenData()->net_end_type() == CaffeGenData::END_ONE_HOT) {
+		if (model_data.NetGenData->getGenDef()->net_end_type() == CaffeGenDef::END_ONE_HOT) {
 			vector<vector<float> >& one_hot_tbl = *(VecTblPtrs[ott.second]);
 			for (int ioht = 0; ioht < one_hot_tbl.size(); ioht++) {
 				vec_for_one_hot.push_back(vector<float>(NumValsInOutput, 0.0f));
@@ -521,12 +717,111 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 				SortedBestDummy, 1, *(p_lookup_vec), 100);
 		map<string, int>& SymTbl = *(TranslateTblPtrs[ott.second]);
 		map<string, int>::iterator itSymTbl = SymTbl.begin();
+		bool b_the_one_found = false;
+		string new_val_for_the_one;
+		int index_for_the_one = -1;
 		for (; itSymTbl != SymTbl.end(); itSymTbl++) {
 			if (itSymTbl->second == iMinDiffLbl) {
-				cerr << "New value: " << itSymTbl->first;
+				cerr << "New value: " << itSymTbl->first << endl;
+				new_val_for_the_one = itSymTbl->first;
+				index_for_the_one = iMinDiffLbl;
+				b_the_one_found = true;
 				break;
 			}
 		}
+		
+		if (!b_the_one_found ) {
+			cerr << "Error: No value found for datTheOne. Cannot continue!\n";
+			break;
+		}
+		
+		switch (tot) {
+			case totPOS:
+				SentenceList[i_srec_the_one].OneWordRec[i_wid_the_one].POS 
+						= new_val_for_the_one;
+				SentenceAvailList[i_srec_the_one].WordRecs[i_wid_the_one].POS
+						= datConst;
+				break;
+			case totDepName:
+				SentenceList[i_srec_the_one].Deps[i_did_the_one].iDep 
+						= index_for_the_one;
+				SentenceAvailList[i_srec_the_one].Deps[i_did_the_one].iDep
+						= datConst;
+				break;
+			default:
+				cerr <<"Not coded yet.";
+				return;
+		}
+		
+		// first shot at adding: Make sure there are no dangling ends to dep records
+		bool b_new_one_set = false;
+		for (int irec = 0; irec < SentenceList.size(); irec++) {
+			vector<DepRec>& deps = SentenceList[irec].Deps;
+			for (int iidep = 0; iidep < deps.size(); iidep++) { 
+				SDepRecAvail& depavail = SentenceAvailList[irec].Deps[iidep];
+				bool b_gov_found = false;
+				if (depavail.Gov == datNotSet) {
+					cerr << "Surprising result. Expect the gov to be set before the dep\n";
+					b_new_one_set = true;
+					b_gov_found = true;
+				}
+				else if (depavail.Dep == datNotSet) {
+					b_new_one_set = true;
+					b_gov_found = false;
+				}
+				if (b_new_one_set) {
+					i_srec_the_one = irec;
+					int WID = SentenceList[irec].OneWordRec.size();
+					SentenceList[irec].OneWordRec.push_back(WordRec());
+					SentenceAvailList[irec].WordRecs.push_back(SWordRecAvail(datNotSet));
+					SentenceAvailList[irec].WordRecs[WID].POS = datTheOne;
+					i_wid_the_one = WID;
+					tot = totPOS;
+					if (b_gov_found) {
+						deps[iidep].Gov = WID;
+						depavail.Gov = datConst;
+					}
+					else {
+						deps[iidep].Dep = WID;
+						depavail.Dep = datConst;
+					}
+					break;
+					
+				}
+			}
+		}
+		
+		if (b_new_one_set) {
+			continue;
+		}
+		// next shot at adding: Create a dep between two existing records
+		// next shot at adding: Create a dangling dep record on one of the words
+		// update 13/3/06. Looks like each word gets only one dep but can have multiple govs
+		for (int irec = 0; irec < SentenceList.size(); irec++) {
+			int num_wrecs = SentenceList[irec].OneWordRec.size();
+			int WID = rand() % num_wrecs;
+			i_srec_the_one = irec;
+			int DID = SentenceList[irec].Deps.size();
+			SentenceList[irec].Deps.push_back(DepRec());
+			SentenceAvailList[irec].Deps.push_back(SDepRecAvail(datNotSet));
+			DepRec& deprec = SentenceList[irec].Deps.back();
+			deprec.Dep = deprec.Gov = (uchar)-1;
+//			if ((rand() % 2) == 0) {
+//				deprec.Dep = WID;
+//				SentenceAvailList[irec].Deps[DID].Dep = datConst;
+//			}
+//			else {
+				deprec.Gov = WID;
+				SentenceAvailList[irec].Deps[DID].Gov = datConst;
+//			}
+			SentenceAvailList[irec].Deps[DID].iDep = datTheOne;
+			i_did_the_one = DID;
+			tot = totDepName;
+			// we are only working on 1 sentence for now
+			b_new_one_set = true;
+			break;
+		}
+
 		
 	}
 
@@ -825,4 +1120,4 @@ int main(int argc, char** argv) {
 	
 }
 #endif // CAFFE_MULTINET_MAIN
-  
+    
