@@ -123,7 +123,7 @@ CGenDefTbls::CGenDefTbls(string& sModelProtoName)
 			= new google::protobuf::io::IstreamInputStream(&proto_ifs);
 		bool bGood = true;
 		if (!google::protobuf::TextFormat::Parse(proto_input, protoc_data)) {
-			cerr << "GenDataModelInit config file Parse failed for " << sModelProtoName << endl;
+			cerr << "CGenDefTbls config file Parse failed for " << sModelProtoName << endl;
 			bGood = false;
 		}
 		delete proto_input;
@@ -132,7 +132,7 @@ CGenDefTbls::CGenDefTbls(string& sModelProtoName)
 		}
 	}
 	else {
-		cerr << "Error in GenDataModelInit. Model file " << sModelProtoName << " not found.\n";
+		cerr << "Error in CGenDefTbls. Model file " << sModelProtoName << " not found.\n";
 		return;
 	}
 	
@@ -778,8 +778,10 @@ bool CGenModelRun::FilterTest(	const CaffeGenDef::DataFilter& data_filter,
 }
 
 
-bool CGenModelRun::DoRun() {
-	DataForVecs.clear();
+bool CGenModelRun::DoRun(bool bContinue) {
+	if (!bContinue) {
+		DataForVecs.clear();
+	}
 	
 //	vector<vector<vector<float> >* >& VecTblPtrs = GenDef.VecTblPtrs;
 //	map<string, int>& TranslateTblNameMap = GenDef.TranslateTblNameMap;

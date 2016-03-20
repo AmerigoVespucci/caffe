@@ -5,6 +5,9 @@ message CaffeIpc {
 		NET_PREDICT = 3;
 		PREDICT_RESULT = 4;
 		END_NET = 5;
+		PREP_GEN = 6;
+		PREP_GEN_DONE = 7;
+		PREP_GEN_FAILED = 8;
 	}
  
     required MsgType type = 1;
@@ -31,6 +34,11 @@ message CaffeIpc {
 
 	optional DataParam data_param = 4;
 
+	message PrepGenParam {
+		required string gengen_filename = 1;
+	}
+
+	optional PrepGenParam prep_gen_param = 5;
 }
 
 

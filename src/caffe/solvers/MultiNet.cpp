@@ -15,11 +15,17 @@
 #include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <boost/asio.hpp>
 #include "H5Cpp.h"
 
 #include "caffe/proto/GenData.pb.h"
 #include "caffe/proto/GenDef.pb.h"
 #include "caffe/GenData.hpp"
+
+#include "caffe/proto/ipc.pb.h"
+#include "caffe/util/ipc.hpp"
+
+void CallNetGen(const string& proto_fname, int num_tries); // in place of using a global header file for the different caffe additions
 
 #ifndef H5_NO_NAMESPACE
     using namespace H5;
@@ -29,6 +35,10 @@ using namespace caffe;  // NOLINT(build/namespaces)
 using std::string;
 namespace fs = boost::filesystem;
 const string WORD_VEC_TBL_NAME = "Words6000";				
+
+const int c_prep_gen_port_num = 1544;
+const char * c_host_name = "0.0.0.0";
+
 
 
 typedef unsigned long long u64;
@@ -136,14 +146,18 @@ public:
 			vector<CorefRec>& aCorefList,
 			vector<SSentenceRecAvail>& aSentenceAvailList,
 			vector<DataAvailType>& aCorefAvail,
-			vector<string>& aDepNames) :
+			vector<string>& aDepNames,
+			tcp::socket* aSocket) :
 		SentenceRec(aSentenceRec), CorefList(aCorefList),
         SentenceAvailList(aSentenceAvailList), CorefAvail(aCorefAvail),
 		DepNames(aDepNames) {
+	ClientSocket = aSocket;
+	
     }
     
-	void DoGen(string& data_core_dir);
+	bool DoGen(string& data_core_dir);
 	string& getNewModelFileName() { return new_model_file_name; }
+	bool PrepGen(const string& proto_name, const string& config_name);
     
 private:
 
@@ -153,6 +167,7 @@ private:
     vector<DataAvailType>& CorefAvail;  
 	vector<string>& DepNames;
 	string new_model_file_name;
+	tcp::socket* ClientSocket;
 };
 
 template <typename T>
@@ -163,8 +178,34 @@ string gen_multinet_to_string ( T Number )
 	return ss.str();
 }
 
+bool CGenGen::PrepGen(const string& proto_name, const string& config_name) {
+	CaffeIpc MsgPrep;
+	MsgPrep.set_type(CaffeIpc::PREP_GEN);
+	CaffeIpc::PrepGenParam* prep_gen_param = MsgPrep.mutable_prep_gen_param();
+	prep_gen_param->set_gengen_filename(proto_name);
 
-void CGenGen::DoGen(string& data_core_dir) {
+	CaffeIPCSendMsg(*ClientSocket, MsgPrep);
+	{
+		CaffeIpc MsgBack;
+		CaffeIPCRcvMsg(*ClientSocket, MsgBack);
+		if (MsgBack.type() == CaffeIpc::PREP_GEN_FAILED) {
+			std::cerr << "Prep gen failed but not giving up yet!\n";
+			return false;			
+		}
+		else if (MsgBack.type() != CaffeIpc::PREP_GEN_DONE) {
+			std::cerr << "Problem with prep server init. Client bids bye!\n";
+			return false;
+		}
+	}
+	
+	//IPCClientClose(ClientSocket);
+	
+	CallNetGen(config_name, 3);
+	
+	return true;
+}
+
+bool CGenGen::DoGen(string& data_core_dir) {
 	string gen_name = string("gengen") + gen_multinet_to_string(time(NULL));
 	CaffeGenDef gen_data;
 
@@ -292,18 +333,24 @@ void CGenGen::DoGen(string& data_core_dir) {
 	}
 
 	{
-		const string ProtoCoreDir = data_core_dir + "GenGen/";
-		const string fname = ProtoCoreDir + gen_name + ".prototxt";
-		ofstream gengen_ofs(fname.c_str());
+		string ProtoCoreDir = data_core_dir + "GenGen/";
+		string proto_fname = ProtoCoreDir + gen_name + ".prototxt";
+		ofstream gengen_ofs(proto_fname.c_str());
 		google::protobuf::io::OstreamOutputStream* gengen_output 
 			= new google::protobuf::io::OstreamOutputStream(&gengen_ofs);
 		//ofstream f_config(ConfigFileName); // I think this one is wrong
+		bool b_all_good = false;
 		if (gengen_ofs.is_open()) {
 			google::protobuf::TextFormat::Print(gen_data, gengen_output);
+			b_all_good = true;
 
 		}
 		delete gengen_output;
-		new_model_file_name = fname;
+		if (!b_all_good) {
+			cerr << "Error. Failed to open and parse prototext file: " << proto_fname << endl;
+			return false;
+		}
+		new_model_file_name = proto_fname;
 	}
 
 	const string NetGenCoreDir = data_core_dir + "NetGen/";
@@ -311,18 +358,29 @@ void CGenGen::DoGen(string& data_core_dir) {
 	fs::path dir(dname);
 	if (!fs::create_directory(fs::path (dname))) {
 		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
+		return false;
 	}
 	const string dname_models = dname + "/models";
 	if (!fs::create_directory(fs::path (dname_models))) {
 		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
+		return false;
 	}
 	const string dname_data = dname + "/data";
 	if (!fs::create_directory(fs::path (dname_data))) {
 		cerr << "DoGen Error: Failed to create directory for NetGen! \n";
-		return;
+		return false;
 	}
+	
+	string config_fname = data_core_dir + "NetGen/" + gen_name + "/data/config.prototxt";
+	if (!PrepGen(new_model_file_name, config_fname)) {
+		cerr << "DoGen Error: Failed to prepare data for NetGen! \n";
+		fs::remove_all(fs::path(dname));
+		fs::remove(fs::path(new_model_file_name));
+		return false;
+	}
+	
+	return true;
+	
 #ifdef STILL_TO_PROCESS
 	CaffeGenData gen_data;
 	gen_data.set_name(gen_name);
@@ -556,6 +614,7 @@ enum ETheOneType {
 	totDepName,
 };
 
+
 void MultiNet::Init(	vector<SingleNet>& nets,
 						const string& word_file_name,
 						const string& word_vector_file_name) {
@@ -598,8 +657,23 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 	
 	p_nets_ = &nets;
 
+	tcp::socket* ClientSocket = NULL;
+	
+	int num_tries = 0;
+	const int c_max_tries = 5;
+	while (ClientSocket == NULL) {
+		usleep(1000);
+		ClientSocket = IPCClientInit(c_host_name, c_prep_gen_port_num);
+		if (num_tries++ > c_max_tries) {
+			cerr << "Error. Failed to make contact with data preparation server.\n";
+			return;
+		}
+		
+	}
+	
 	CGenGen GenGen(	SentenceList, CorefSoFar, SentenceAvailList, CorefAvail, 
-					tbls_data_->getDepNamesTbl());
+					tbls_data_->getDepNamesTbl(), ClientSocket);
+	//GenGen.PrepGen(string("blah"));
 	
 	bool bKeepGoing = true;
 	bool b_pick_last_net = false;
@@ -617,17 +691,16 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 			SModelData& model_def = model_data_arr_[in];
 
 			//int NumOutputNodesNeeded = -1;
-
+			vector<SDataForVecs > DataForVecs;
+			
 			CGenModelRun GenModelRun(	*model_def.NetGenData, SentenceList, CorefSoFar, 
-										SentenceAvailList, CorefAvail);
+										SentenceAvailList, CorefAvail, DataForVecs);
 
 			GenModelRun.setReqTheOneOutput();
 
 			if (!GenModelRun.DoRun()) {
 				return;
 			}
-
-			vector<SDataForVecs >& DataForVecs = GenModelRun.getDataForVecs();
 
 			if (DataForVecs.size() == 0) {
 				continue;
@@ -644,15 +717,20 @@ void MultiNet::Init(	vector<SingleNet>& nets,
 		}
 		
 		if (i_net_chosen == -1) {
-			GenGen.DoGen(data_core_dir_);
+			if (!GenGen.DoGen(data_core_dir_)) {
+				break;
+			}
 			
 			// run gotit2
 			// run netgen
 			// add new net to nets
-			break; // remove
+			// break; // remove
 			// go back and try current sentence on last item of list
 			string& new_net_file_name = GenGen.getNewModelFileName();
 			AddModel(new_net_file_name);
+			SModelData& model_data = model_data_arr_.back();
+			nets.push_back(SingleNet(	model_data.model_file_name_, model_data.trained_file_name_, 
+										model_data.input_layer_name_, model_data.output_layer_name_));
 			b_pick_last_net = true;
 			continue;
 		}

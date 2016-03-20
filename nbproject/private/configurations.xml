@@ -459,6 +459,7 @@
             <in>im2col.hpp</in>
             <in>insert_splits.hpp</in>
             <in>io.hpp</in>
+            <in>ipc.hpp</in>
             <in>math_functions.hpp</in>
             <in>mkl_alternate.hpp</in>
             <in>rng.hpp</in>
@@ -615,6 +616,7 @@
           <df name="proto">
           </df>
           <df name="solvers">
+            <in>CaffeServer.cpp</in>
             <in>MultiNet.cpp</in>
             <in>NetGen.cpp</in>
             <in>adadelta_solver.cpp</in>
@@ -702,6 +704,7 @@
             <in>im2col.cpp</in>
             <in>insert_splits.cpp</in>
             <in>io.cpp</in>
+            <in>ipc.cpp</in>
             <in>math_functions.cpp</in>
             <in>signal_handler.cpp</in>
             <in>upgrade_proto.cpp</in>
@@ -768,8 +771,6 @@
         <gdb_interceptlist>
           <gdbinterceptoptions gdb_all="false" gdb_unhandled="true" gdb_unexpected="true"/>
         </gdb_interceptlist>
-        <gdb_signals>
-        </gdb_signals>
         <gdb_options>
           <DebugOptions>
           </DebugOptions>

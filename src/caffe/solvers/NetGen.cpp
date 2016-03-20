@@ -1061,7 +1061,7 @@ void NetGen::Init() {
 		else if (!b_found_one_improvement && (loss_intersection_continue > loss_highway) ) {
 			this_best_loss = loss_highway;
 //			if (num_fails >= c_max_fails) {
-//				std::cerr << "Optimiztion complete. No better option\n";
+//				std::cerr << "Optimization complete. No better option\n";
 //				break;
 //			}
 //			num_fails++;
@@ -1082,7 +1082,7 @@ void NetGen::Init() {
 		}
 //		sec seconds = boost::chrono::nanoseconds(progress_timer.elapsed().user + progress_timer.elapsed().system);
 //		if (seconds.count() > max_wait_for_progress) {
-//			std::cerr	<< "Optimiztion complete. record for lowest score not set for " 
+//			std::cerr	<< "Optimization complete. record for lowest score not set for " 
 //						<< seconds.count() << " seconds.\n";
 //			break;
 //		}
@@ -1149,7 +1149,7 @@ void NetGen::Init() {
 			num_nodes_in_layer = num_nodes_in_layer_mod;
 		}
 		if (num_fails >= max_no_progress) {
-			std::cerr << "Optimiztion complete. No better option\n";
+			std::cerr << "Optimization complete. No better option\n";
 			break;
 		}
 	}
@@ -1174,6 +1174,17 @@ bool NetGen::Classify() {
  /home/abba/caffe/toys/ValidClicks/train.prototxt /guten/data/ValidClicks/data/v.caffemodel
  /home/abba/caffe/toys/SimpleMoves/Forward/train.prototxt /devlink/caffe/data/SimpleMoves/Forward/models
  */
+
+void CallNetGen(const string& proto_fname, int num_tries)
+{
+	//NetGen generator("/devlink/caffe/data/NetGen/gengen1455787125/data/config.prototxt");
+	// second arg, how many tries without progress
+	NetGen generator(proto_fname, num_tries);
+	vector<shared_ptr<NGNet> > nets;
+	generator.PreInit();
+	generator.Init();
+	
+}
  
 #ifdef CAFFE_NET_GEN_MAIN
 int main(int argc, char** argv) {

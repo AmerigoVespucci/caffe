@@ -302,15 +302,16 @@ public:
                     std::vector<SSentenceRec>& aSentenceRec,
                     std::vector<CorefRec>& aCorefList,
                     std::vector<SSentenceRecAvail>& aSentenceAvailList,
-                    std::vector<DataAvailType>& aCorefAvail) :
+                    std::vector<DataAvailType>& aCorefAvail,
+					std::vector<SDataForVecs >& aDataForVecs) :
         GenDef(aGenDef), SentenceRec(aSentenceRec), CorefList(aCorefList),
-        SentenceAvailList(aSentenceAvailList), CorefAvail(aCorefAvail) {
+        SentenceAvailList(aSentenceAvailList), CorefAvail(aCorefAvail),
+		DataForVecs(aDataForVecs) {
             OutputTheOneIdx = -1;
             bReqTheOneOutput = false;
     }
     
-    bool DoRun();
-    vector<SDataForVecs >& getDataForVecs() { return DataForVecs; }
+    bool DoRun(bool bContinue = false);
     void setReqTheOneOutput() ;
 	bool DepMatchTest(	const CaffeGenDef::DataAccess& data_access_rec, 
 						int isr, int DID, int isrBeyond, bool b_use_avail);
@@ -333,7 +334,7 @@ private:
     std::vector<CorefRec>& CorefList;
     std::vector<SSentenceRecAvail>& SentenceAvailList; 
     std::vector<DataAvailType>& CorefAvail;        
-    std::vector<SDataForVecs > DataForVecs;
+    std::vector<SDataForVecs >& DataForVecs;
     bool bReqTheOneOutput;
     int OutputTheOneIdx;
    
