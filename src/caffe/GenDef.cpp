@@ -9,7 +9,9 @@
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
+#include <glog/logging.h>
 #include <vector>
+#include <list>
 #include <map>
 //#include "stdafx.h"
 
@@ -33,6 +35,8 @@
 	
 using namespace std;	
 
+const int c_ordinal_tbl_max = 10; // velo ad bichlal
+
 template <typename T>
 string gen_data_to_string ( T Number )
 {
@@ -41,7 +45,7 @@ string gen_data_to_string ( T Number )
 	return ss.str();
 }
 
-
+#if 0
 string CGenModelRun::GetRecFieldByIdx(	int SRecID, int WID, 
 										CaffeGenData_FieldType FieldID, 
 										DataAvailType& RetAvail, bool bUseAvail)
@@ -110,7 +114,7 @@ string CGenModelRun::GetRecFieldByIdx(	int SRecID, int WID,
 	}
 	return string();
 }
-
+#endif // 0
 
 CGenDefTbls::CGenDefTbls(string& sModelProtoName) 
 {
@@ -203,6 +207,19 @@ CGenDefTbls::CGenDefTbls(string& sModelProtoName)
 	TranslateTblNameMap["YesNoTbl"] = YesNoTblIdx;
 	TranslateTblPtrs.push_back(NULL);
 	VecTblPtrs.push_back(YesNoTbl);
+	
+	vector<vector<float> > * ordinal_vec_tbl = new vector<vector<float> >;
+	for (int io = 0; io < c_ordinal_tbl_max; io++) {
+		ordinal_vec_tbl->push_back(vector<float>(c_ordinal_tbl_max, 0.0f));
+		(*ordinal_vec_tbl)[io][io] = 1.0f;
+	}
+
+	int OrdinalTblIdx = TranslateTblPtrs.size();
+	TranslateTblNameMap["OrdinalVecTbl"] = OrdinalTblIdx;
+	TranslateTblPtrs.push_back(NULL);
+	VecTblPtrs.push_back(ordinal_vec_tbl);
+	
+	
 	delete protoc_data;
 	bInitDone = true;
 
@@ -292,54 +309,380 @@ struct VarTbEl {
 	pair<int, int> R_DorW_ID;
 };
 
-
-
-bool CGenDef::ModelPrep()
+bool CreateAccessOrder(	vector<pair<int, bool> >& AccessFilterOrderTbl, 
+						CaffeGenDef * gen_def,
+						map<string, int>& var_tbl_idx_map)
 {
 	AccessFilterOrderTbl.clear();
-	map<string, int> var_tbl_idx_map;
+	var_tbl_idx_map.clear();
 
-	// each pair in the table: first - idx of rec to access. second: idx of VarTbl to put it into
+	vector<bool> filter_inserted_tbl(gen_def->data_filters_size(), false);
+
+	// New Algortihm.
+	// First find the access entry that corresponds to the target(s)
+	// then work your way up a ladder of wrec, pointed to by dep, next to gov restart
+	// If it is a single path tree, we go directly from target to start (root)
+	// However, there might be two gov ptrs to the same wrrec (currently it seems that there are never more tha one dep pointer)
+	// The other wrec is not on the main branch. So we store the branches and process them at the end
 	for (int iaf = 0; iaf < gen_def->access_fields_size(); iaf++) {
-		AccessFilterOrderTbl.push_back(make_pair(iaf, true));	
-		var_tbl_idx_map[gen_def->access_fields(iaf).var_name()] = iaf;
 		CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
+		var_tbl_idx_map[access->var_name()] = iaf;			
 		access->set_var_idx(iaf);
 	}
-	
-	for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
-		CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
-		CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
-		left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
-		CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
-		right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
-		bool b_left_found = false;
-		bool b_right_found = false;
-		vector<pair<int, bool> >::iterator itOrderTbl = AccessFilterOrderTbl.begin();
-		for (;itOrderTbl != AccessFilterOrderTbl.end(); itOrderTbl++) {
-			pair<int, bool>& order_el = *itOrderTbl;
-			if (!order_el.second) {
-				continue;
-			}
-			const CaffeGenDef::DataAccess& access = gen_def->access_fields(order_el.first);
-			if (!b_left_found && (left_side->var_name_src() == access.var_name())) {
-				b_left_found = true;
-			}
-			if (!b_right_found && (right_side->var_name_src() == access.var_name())) {
-				b_right_found = true;
-			}
-			if (b_left_found && b_right_found) {
-				break;
-			}
+
+	vector<int> targets;
+	for (int inv = 0; inv < gen_def->net_values_size(); inv++) {
+		const CaffeGenDef::NetValue& net_value = gen_def->net_values(inv);
+		if (net_value.var_name_src().length() == 0) {
+			continue;
 		}
-		if (!b_left_found || !b_right_found) {
-			cerr << "Error in GenDef proto file. Data Filter accesses a var name not in var table\n";
+		map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(net_value.var_name_src());
+		if (it_var_tbl == var_tbl_idx_map.end()) {
+			cerr << "Error: Gen Def proto accesses an entry in access vars that does not exist.\n";
 			return false;
 		}
-		itOrderTbl++;
-		AccessFilterOrderTbl.insert(itOrderTbl, make_pair(idf, false));
+		if (!net_value.b_input()) {
+			targets.push_back(it_var_tbl->second);
+		}
+	}
+
+	vector<bool> access_els_added(gen_def->access_fields_size(), false);
+	list<int> other_branch_heads;
+	
+	for (int itt = 0; itt < targets.size(); itt++) {
+		int iaf = targets[itt];
+		if (access_els_added[iaf]) continue;
+		access_els_added[iaf] = true;
+
+		bool b_on_main_branch = true;
+		
+		AccessFilterOrderTbl.push_back(make_pair(iaf, true));	
+		while (b_on_main_branch) {
+			b_on_main_branch = false; // set back to true later on if the branch continues
+			CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
+			string access_var_name = access->var_name();
+			bool b_filter_found = false;
+			string dep_var_name = "unfounded";
+			if (access->access_type() == CaffeGenDef::ACCESS_TYPE_DEP) {
+				dep_var_name= access_var_name;
+			} 
+			else {
+				for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+					if (filter_inserted_tbl[idf]) continue;
+
+					CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+					CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+					CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+					// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+					if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+					if (right_side->var_name_src() != access_var_name) continue;
+					if (left_side->mt() != CaffeGenDef::mtDEP_DEP_RWID) continue;
+					dep_var_name = left_side->var_name_src();
+					map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(dep_var_name);
+					if (it_var_tbl == var_tbl_idx_map.end()) {
+						cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+						return false;
+					}
+					int i_dep_var = it_var_tbl->second;
+					if (access_els_added[i_dep_var]) continue;
+					access_els_added[i_dep_var] = true;
+					AccessFilterOrderTbl.push_back(make_pair(i_dep_var, true));	
+					AccessFilterOrderTbl.push_back(make_pair(idf, false));
+					filter_inserted_tbl[idf] = true;
+					left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+					right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+					b_filter_found = true;
+					break;
+				}
+				if (!b_filter_found) {
+					continue;
+				}
+			}
+			string access_gov_var_name = "unfounded";
+			int i_gov_var;
+			b_filter_found = false;
+			for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+				if (filter_inserted_tbl[idf]) continue;
+				
+				CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+				CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+				CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+				// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+				if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+				if (left_side->var_name_src() != dep_var_name) continue;
+				if (left_side->mt() != CaffeGenDef::mtDEP_GOV_RWID) continue;
+				access_gov_var_name = right_side->var_name_src();
+				map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(access_gov_var_name);
+				if (it_var_tbl == var_tbl_idx_map.end()) {
+					cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+					return false;
+				}
+				i_gov_var = it_var_tbl->second;
+				if (access_els_added[i_gov_var]) continue;
+				access_els_added[i_gov_var] = true;
+				AccessFilterOrderTbl.push_back(make_pair(i_gov_var, true));	
+				AccessFilterOrderTbl.push_back(make_pair(idf, false));
+				filter_inserted_tbl[idf] = true;
+				left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+				right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+				b_filter_found = true;
+				break;
+			}
+			if (!b_filter_found) continue;
+			iaf = i_gov_var;
+			b_on_main_branch = true; // go round for another go
+			for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+				if (filter_inserted_tbl[idf]) continue;
+				
+				CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+				CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+				CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+				// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+				if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+				if (right_side->var_name_src() != access_gov_var_name) continue;
+				if (left_side->mt() != CaffeGenDef::mtDEP_GOV_RWID) continue;
+				dep_var_name = left_side->var_name_src();
+				map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(dep_var_name);
+				if (it_var_tbl == var_tbl_idx_map.end()) {
+					cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+					return false;
+				}
+				//int i_dep_var = it_var_tbl->second;
+				LOG(INFO) << "Note. We need to add a branch here.\n";
+				other_branch_heads.push_back(i_gov_var); // what we add is the var position of the access_gov_var_name
+				break; // just add the extra branch once. For more extra branches see processing of extra branches later
+			}
+
+		}
+		//CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
+
 	}
 	
+	while (!other_branch_heads.empty()) {
+		int iaf = other_branch_heads.front();
+		other_branch_heads.pop_front();
+		
+		bool b_on_this_branch = true;
+		
+		while (b_on_this_branch) {
+			b_on_this_branch = false; // set back to true later on if the branch continues
+			CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
+			string access_var_name = access->var_name();
+			bool b_filter_found = false;
+			string deptype_var_name = "unfounded";
+			if (access->access_type() == CaffeGenDef::ACCESS_TYPE_DEP) {
+				cerr << "Strange. A dep type access should not have appeared in the other_branches_head list.\n";
+				deptype_var_name= access_var_name;
+			} 
+			else {
+				for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+					if (filter_inserted_tbl[idf]) continue;
+
+					CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+					CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+					CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+					// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+					if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+					if (right_side->var_name_src() != access_var_name) continue;
+					if (left_side->mt() != CaffeGenDef::mtDEP_GOV_RWID) continue;
+					deptype_var_name = left_side->var_name_src();
+					map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(deptype_var_name);
+					if (it_var_tbl == var_tbl_idx_map.end()) {
+						cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+						return false;
+					}
+					int i_deptype_var = it_var_tbl->second;
+					if (access_els_added[i_deptype_var]) continue;
+					access_els_added[i_deptype_var] = true;
+					AccessFilterOrderTbl.push_back(make_pair(i_deptype_var, true));	
+					AccessFilterOrderTbl.push_back(make_pair(idf, false));
+					filter_inserted_tbl[idf] = true;
+					left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+					right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+					b_filter_found = true;
+					break;
+				}
+				if (!b_filter_found) {
+					continue;
+				}
+			}
+			string access_dep_var_name = "unfounded";
+			int i_access_dep_var;
+			b_filter_found = false;
+			for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+				if (filter_inserted_tbl[idf]) continue;
+				
+				CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+				CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+				CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+				// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+				if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+				if (left_side->var_name_src() != deptype_var_name) continue;
+				if (left_side->mt() != CaffeGenDef::mtDEP_DEP_RWID) continue;
+				access_dep_var_name = right_side->var_name_src();
+				map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(access_dep_var_name);
+				if (it_var_tbl == var_tbl_idx_map.end()) {
+					cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+					return false;
+				}
+				i_access_dep_var = it_var_tbl->second;
+				if (access_els_added[i_access_dep_var]) continue;
+				access_els_added[i_access_dep_var] = true;
+				AccessFilterOrderTbl.push_back(make_pair(i_access_dep_var, true));	
+				AccessFilterOrderTbl.push_back(make_pair(idf, false));
+				filter_inserted_tbl[idf] = true;
+				left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+				right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+				b_filter_found = true;
+				break;
+			}
+			if (!b_filter_found) continue;
+			int i_gov_var = iaf;
+			iaf = i_access_dep_var;
+			b_on_this_branch = true; // go round for another go
+			// unlike the last time, where we were climbing up dep->gov, dep->gov
+			// this time, since we are climbing gov->dep on side branches we handle yet
+			// more side branches by adding the original braching cause and not the dep
+			for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+				if (filter_inserted_tbl[idf]) continue;
+				
+				CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+				CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+				CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+				// the right side by current convention is the id of wrec and the left side is either the dep or gov pointing to it
+				if (right_side->mt() != CaffeGenDef::mtWORD_RWID) continue;
+				if (right_side->var_name_src() != access_var_name) continue;
+				if (left_side->mt() != CaffeGenDef::mtDEP_GOV_RWID) continue;
+				deptype_var_name = left_side->var_name_src();
+//				map<string, int>::iterator it_var_tbl = var_tbl_idx_map.find(deptype_var_name);
+//				if (it_var_tbl == var_tbl_idx_map.end()) {
+//					cerr << "Error: Gen Def proto accesses an entry in access vars that has ontological problems.\n";
+//					return false;
+//				}
+//				int i_dep_var = it_var_tbl->second;
+				LOG(INFO) << "Note. Adding yet another branch here.\n";
+				other_branch_heads.push_back(i_gov_var);
+				break; // if we need to put him on again we'll do so if his name comes up again, not now
+			}
+
+		}
+	}
+	// iBoth here is adding access fields both:
+	// 1. When there is a dep or POS (later word) match field
+	// 2. Second time round where there is no match requirement
+	// If this order is not kept the search can get very large before failing anyway
+//	for (int iBoth = 0; iBoth < 2; iBoth++) {
+//		for (int iaf = 0; iaf < gen_def->access_fields_size(); iaf++) {
+//			CaffeGenDef::DataAccess* access = gen_def->mutable_access_fields(iaf);
+//			if (	iBoth == 0 
+//				&&	!(	access->has_pos_to_match() 
+//					||	access->has_dep_type_to_match())) {
+//				continue;
+//			}
+//			if (	iBoth == 1 
+//				&&	(	access->has_pos_to_match() 
+//					||	access->has_dep_type_to_match())) {
+//				continue;
+//			}
+//			AccessFilterOrderTbl.push_back(make_pair(iaf, true));	
+//			var_tbl_idx_map[access->var_name()] = iaf;			
+//			access->set_var_idx(iaf);
+//
+//			for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+//				if (filter_inserted_tbl[idf]) continue;
+//				
+//				CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+//				CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+//				CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+//				bool b_left_found = false;
+//				bool b_right_found = false;
+//				for (int i_order = 0;i_order < AccessFilterOrderTbl.size(); i_order++) {
+//					pair<int, bool>& order_el = AccessFilterOrderTbl[i_order];
+//					if (!order_el.second) { // if not an access entry but rather a filter
+//						continue;
+//					}
+//					const CaffeGenDef::DataAccess& access = gen_def->access_fields(order_el.first);
+//					if (!b_left_found && (left_side->var_name_src() == access.var_name())) {
+//						b_left_found = true;
+//					}
+//					if (!b_right_found && (right_side->var_name_src() == access.var_name())) {
+//						b_right_found = true;
+//					}
+//					if (b_left_found && b_right_found) {
+//						break;
+//					}
+//				}
+//				if (!b_left_found || !b_right_found) {
+//					continue;
+//				}
+//				AccessFilterOrderTbl.push_back(make_pair(idf, false));
+//				filter_inserted_tbl[idf] = true;
+//				left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+//				right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+//			}
+//
+//		}
+//		
+//	}
+
+	for (int i_access = 0; i_access < access_els_added.size(); i_access++) {
+		if (!access_els_added[i_access]) {
+			cerr << "Note. Current alogorithm did not access every var\n";
+			//return false;			
+		}
+	}
+
+	
+	for (int i_inserted = 0; i_inserted < filter_inserted_tbl.size(); i_inserted++) {
+		if (!filter_inserted_tbl[i_inserted]) {
+			cerr << "Error in GenDef proto file. Data Filter accesses a var name not in var table\n";
+			//return false;			
+		}
+	}
+
+	return true;
+}
+bool CGenDef::ModelPrep()
+{
+
+	if (!::CreateAccessOrder(AccessFilterOrderTbl, gen_def,  var_tbl_idx_map)) {
+		return false;
+	}
+	// each pair in the table: first - idx of rec to access. second: idx of VarTbl to put it into - what??
+	
+//	for (int idf = 0; idf < gen_def->data_filters_size(); idf++) {
+//		CaffeGenDef::DataFilter* filter = gen_def->mutable_data_filters(idf);
+//		CaffeGenDef::DataFilterOneSide* left_side = filter->mutable_left_side();
+//		left_side->set_var_src_idx(var_tbl_idx_map[left_side->var_name_src()]);
+//		CaffeGenDef::DataFilterOneSide* right_side = filter->mutable_right_side();
+//		right_side->set_var_src_idx(var_tbl_idx_map[right_side->var_name_src()]);
+//		bool b_left_found = false;
+//		bool b_right_found = false;
+//		vector<pair<int, bool> >::iterator itOrderTbl = AccessFilterOrderTbl.begin();
+//		for (;itOrderTbl != AccessFilterOrderTbl.end(); itOrderTbl++) {
+//			pair<int, bool>& order_el = *itOrderTbl;
+//			if (!order_el.second) {
+//				continue;
+//			}
+//			const CaffeGenDef::DataAccess& access = gen_def->access_fields(order_el.first);
+//			if (!b_left_found && (left_side->var_name_src() == access.var_name())) {
+//				b_left_found = true;
+//			}
+//			if (!b_right_found && (right_side->var_name_src() == access.var_name())) {
+//				b_right_found = true;
+//			}
+//			if (b_left_found && b_right_found) {
+//				break;
+//			}
+//		}
+//		if (!b_left_found || !b_right_found) {
+//			cerr << "Error in GenDef proto file. Data Filter accesses a var name not in var table\n";
+//			return false;
+//		}
+//		itOrderTbl++;
+//		AccessFilterOrderTbl.insert(itOrderTbl, make_pair(idf, false));
+//	}
+//	
 	int num_input_vals = 0;
 	int num_output_vals = 0;
 	
@@ -347,7 +690,8 @@ bool CGenDef::ModelPrep()
 
 	for (int inv = 0; inv < gen_def->net_values_size(); inv++) {
 		CaffeGenDef::NetValue* net_value = gen_def->mutable_net_values(inv);
-		int var_src_idx = var_tbl_idx_map[net_value->var_name_src()];
+		int var_src_idx = ((net_value->vet() == CaffeGenDef::vetDummy) 
+				? 0 : var_tbl_idx_map[net_value->var_name_src()]);
 		net_value->set_var_src_idx(var_src_idx);
 		int table_idx = -1;
 		if (!pGenDefTbls->getTableNameIdx((const string)net_value->vec_table_name(), table_idx)) {
@@ -371,12 +715,15 @@ bool CGenDef::ModelPrep()
 	}
 
 	NumOutputNodesNeeded = -1;
+	OutputSetNumNodes.clear();
 	if (gen_def->net_end_type() == CaffeGenDef::END_VALID) {
 		if (num_output_vals != 1) {
 			cerr << "For end type END_VALID, the number of output_field_translates must be exactly 1.\n";	
 			return false;
 		}
 		NumOutputNodesNeeded = 2;
+		OutputSetNumNodes.push_back(NumOutputNodesNeeded);
+		
 	}
 	else if (gen_def->net_end_type() == CaffeGenDef::END_ONE_HOT) {
 		if (num_output_vals != 1) {
@@ -385,12 +732,15 @@ bool CGenDef::ModelPrep()
 		}
 		map<string, int>* pTbl = TranslateTblPtrs[OutputTranslateTbl[0].second];
 		NumOutputNodesNeeded = pTbl->size();
+		OutputSetNumNodes.push_back(NumOutputNodesNeeded);
 	}
 	else if (gen_def->net_end_type() == CaffeGenDef::END_MULTI_HOT) {
 		NumOutputNodesNeeded = 0;
 		for (int ift = 0; ift < num_output_vals; ift++) {
 			vector<vector<float> >* pTbl = VecTblPtrs[OutputTranslateTbl[ift].second];
-			NumOutputNodesNeeded += (*pTbl)[0].size();
+			int nodes_this_output = (*pTbl)[0].size();
+			NumOutputNodesNeeded += nodes_this_output;
+			OutputSetNumNodes.push_back(nodes_this_output);
 		}
 	}
 	return true;
@@ -573,10 +923,13 @@ bool CGenDef::ModelPrep()
 #endif // 0	
 }
 
-bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx) {
+bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx, bool& bIsPOS) {
 	if (OutputTranslateTbl.size() != 1) {
-		cerr << "Error in setReqTheOneOutput: only models with 1 output are supported.\n";
-		return false;
+		//cerr << "Error in setReqTheOneOutput: only models with 1 output are supported.\n";
+		// only where output is word, can the table size be > 0
+		OutputTheOneIdx = OutputTranslateTbl[0].first; // thr first of the pair should be the same for both outputs, it is the index into the var table
+		bIsPOS = false;
+		return true;
 	}
 	// The index of the var table acceesed in order to create the single output
 	// is the index we are looking for. When an access or translation is made whose
@@ -585,6 +938,8 @@ bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx) {
 	// of the field we are looking to add
 	pair<int, int>& iott = OutputTranslateTbl[0];
 	OutputTheOneIdx = iott.first;
+	int PosNumVecTblIdx = TranslateTblNameMap["POSNumTbl"];
+	bIsPOS = (iott.second == PosNumVecTblIdx);
 	
 	return true;
 	
@@ -593,8 +948,10 @@ bool  CGenDef::setReqTheOneOutput(int& OutputTheOneIdx) {
 void  CGenModelRun::setReqTheOneOutput() { 
 	bReqTheOneOutput = true; 
 	int RetIdx = -1;
-	if (GenDef.setReqTheOneOutput(RetIdx)) {
+	bool bIsPOS = false;
+	if (GenDef.setReqTheOneOutput(RetIdx, bIsPOS)) {
 		OutputTheOneIdx = RetIdx;
+		bTheOneOutputIsPOS = bIsPOS;
 	}
 }
 
@@ -682,7 +1039,7 @@ bool CGenModelRun::WordMatchTest(const CaffeGenDef::DataAccess& data_access_rec,
 				if (	(wrec_avail.POS == datTheOne) 
 					&&	bReqTheOneOutput 
 					&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
-					if (data_access_rec.has_dep_type_to_match()) {
+					if (data_access_rec.has_pos_to_match()) {
 						b_avail = false; // datTheOne cannot match on a record that requires a specific dep name
 					}
 					else {
@@ -695,7 +1052,8 @@ bool CGenModelRun::WordMatchTest(const CaffeGenDef::DataAccess& data_access_rec,
 			}
 			else {
 				if (	bReqTheOneOutput 
-					&&	(data_access_rec.var_idx() == OutputTheOneIdx)) {
+					&&	(data_access_rec.var_idx() == OutputTheOneIdx)
+					&&  bTheOneOutputIsPOS	) {
 					b_avail = false;
 				}
 				else {
@@ -787,6 +1145,7 @@ bool CGenModelRun::DoRun(bool bContinue) {
 //	map<string, int>& TranslateTblNameMap = GenDef.TranslateTblNameMap;
 	//vector<string>& DepNames = GenDef.DepNames;
 	int YesNoTblIdx = GenDef.YesNoTblIdx;
+	int OrdinalVecTblIdx = GenDef.OrdinalVecTblIdx;
 	vector<map<string, int>*>& TranslateTblPtrs = GenDef.TranslateTblPtrs;
 	vector<pair<int, bool> >& AccessFilterOrderTbl
 			= GenDef.getAccessFilterOrderTbl(); // if second is true, first is access message index else filter message
@@ -810,6 +1169,21 @@ bool CGenModelRun::DoRun(bool bContinue) {
 			CorefRevTbl[crec.SentenceID][crec.HeadWordId] = icrec;
 		}
 	}
+	
+	max_dep_gov_list.clear();
+	{
+		for (int isrec = 0; isrec < SentenceRec.size(); isrec++) {
+			SSentenceRec& srec = SentenceRec[isrec];
+			max_dep_gov_list.push_back(vector<int>(srec.OneWordRec.size(), 0));
+			vector<DepRec>& deps = srec.Deps;
+			for (int iidep = 0; iidep < deps.size(); iidep++) {
+				int igov = (int)(signed char)deps[iidep].Gov;
+				if (igov > 0) {
+					max_dep_gov_list[isrec][igov]++;
+				}
+			}
+		}
+	}
 	// step through records creating data based on translation tables just created
 	
 //	int NumWordsClean = RevWordMapClean.size();
@@ -830,7 +1204,7 @@ bool CGenModelRun::DoRun(bool bContinue) {
 		SSentenceRec rec = SentenceRec[isr];
 		for (int iOrder = 0; iOrder < AccessFilterOrderTbl.size(); iOrder++) {
 			VarTblAllNewOptions.clear();
-			if (AccessFilterOrderTbl[iOrder].second) {
+			if (AccessFilterOrderTbl[iOrder].second) { // if data access and not a filter
 				const CaffeGenDef::DataAccess& data_access_rec 
 						= gen_def->access_fields(AccessFilterOrderTbl[iOrder].first);
 
@@ -844,7 +1218,14 @@ bool CGenModelRun::DoRun(bool bContinue) {
 								// go through checking that this node is not already in the var table
 								// in the future an option in DataAccess might less us override this check
 								bool b_dup = false;
-								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
+								for (	int iPrevOrder = 0; iPrevOrder < iOrder; 
+										iPrevOrder++) {
+//								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
+									if (!AccessFilterOrderTbl[iPrevOrder].second) {
+										continue;
+									}
+									// i_var is the index into the var tbl 
+									int i_var = AccessFilterOrderTbl[iPrevOrder].first;
 									if (	VarTblSrc[i_var].bDorW 
 										&&	VarTblSrc[i_var].R_DorW_ID.first == isr 
 										&&	VarTblSrc[i_var].R_DorW_ID.second == idep) {
@@ -852,7 +1233,9 @@ bool CGenModelRun::DoRun(bool bContinue) {
 										break;
 									}
 								}
-								if (b_dup) continue;
+								if (b_dup) {
+									continue;
+								}
 								VarTblAllNewOptions.push_back(VarTblSrc);
 								vector <VarTblEl>& VarTblNew = VarTblAllNewOptions.back();
 								VarTblNew[data_access_rec.var_idx()] = (VarTblEl(true, isr, idep));
@@ -870,7 +1253,14 @@ bool CGenModelRun::DoRun(bool bContinue) {
 								// go through checking that this node is not already in the var table
 								// in the future an option in DataAccess might less us override this check
 								bool b_dup = false;
-								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
+								for (	int iPrevOrder = 0; iPrevOrder < iOrder; 
+										iPrevOrder++) {
+//								for (int i_var = 0; i_var < data_access_rec.var_idx(); i_var++) {
+									if (!AccessFilterOrderTbl[iPrevOrder].second) {
+										continue;
+									}
+									// i_var is the index into the var tbl 
+									int i_var = AccessFilterOrderTbl[iPrevOrder].first;
 									if (	!VarTblSrc[i_var].bDorW 
 										&&	VarTblSrc[i_var].R_DorW_ID.first == isr 
 										&&	VarTblSrc[i_var].R_DorW_ID.second == iwrec) {
@@ -878,7 +1268,9 @@ bool CGenModelRun::DoRun(bool bContinue) {
 										break;
 									}
 								}
-								if (b_dup) continue;
+								if (b_dup) {
+									continue;
+								}
 								VarTblAllNewOptions.push_back(VarTblSrc);
 								vector <VarTblEl>& VarTblNew = VarTblAllNewOptions.back();
 								VarTblNew[data_access_rec.var_idx()] = (VarTblEl(false, isr, iwrec));
@@ -888,6 +1280,8 @@ bool CGenModelRun::DoRun(bool bContinue) {
 					
 				}
 				else {
+					cerr << "CGenModelRun::DoRun Error: Unknown access type.\n";
+					return false;
 				}
 			}	
 			else { // if (!AccessFilterOrderTbl[iOrder].second) { 
@@ -908,6 +1302,11 @@ bool CGenModelRun::DoRun(bool bContinue) {
 			if (VarTblAllOptions.size() == 0) {
 				break;
 			}
+			if (VarTblAllOptions.size() > 5000) {
+				cerr	<< "Do run options getting big. Now at " << VarTblAllOptions.size() 
+						<< ". at isr: " << isr <<  " of " << SentenceRec.size() 
+						<< ". index of AccessOrderTbl is at " << iOrder	<< ".\n";
+			}
 		}	
 
 		for (int i_option = 0; i_option < VarTblAllOptions.size(); i_option++) {
@@ -916,10 +1315,16 @@ bool CGenModelRun::DoRun(bool bContinue) {
 			string s;
 			vector<VarTblEl>& var_tbl = VarTblAllOptions[i_option];
 			bool b_all_found = true;
+			bool b_output_eval_done = false;
 			for (int inv = 0; inv < GenDef.gen_def->net_values_size(); inv++) {
 				const CaffeGenDef::NetValue& val = GenDef.gen_def->net_values(inv);
 				vector<int>& Data =  (val.b_input() ? IData : OData);
 				if (!val.b_input() && bReqTheOneOutput) {
+					// first make sure that even if we are req the one output,
+					// we only do this evaluation on one of the outputs
+					// this is because word outputs have two outputs, both on the dame var idx
+					if (b_output_eval_done) continue;
+					b_output_eval_done = true;
 					VarTblEl& el = var_tbl[val.var_src_idx()];
 					int isr = el.R_DorW_ID.first;
 					if (el.bDorW) {
@@ -938,11 +1343,15 @@ bool CGenModelRun::DoRun(bool bContinue) {
 							case CaffeGenDef::vetPOS:
 								dat = wrec_avail.POS;
 								break;
+							case CaffeGenDef::vetNumDepGovs: // adding this option to vetWord because they are supposed to come together
 							case CaffeGenDef::vetWord:
 								dat = wrec_avail.Word;
 								break;
-							case CaffeGenDef::vetWordCode: // misspelled. Deal with it!
+							case CaffeGenDef::vetWordCore:
 								dat = wrec_avail.WordCore;
+								break;
+							case CaffeGenDef::vetDummy:
+								dat = datConst;
 								break;
 							default:
 								cerr << "Error. Requesting a dep field from a word rec.\n";
@@ -955,12 +1364,27 @@ bool CGenModelRun::DoRun(bool bContinue) {
 						}
 				}
 					
-					cerr << "Found the one!\n";
+					LOG(INFO) << "Found the one!\n";
 					continue;
 				}
 				if (val.vec_table_idx() == YesNoTblIdx) {
 					Data.push_back(1);
 				}
+				else if (val.vec_table_idx() == OrdinalVecTblIdx) {
+					VarTblEl& el = var_tbl[val.var_src_idx()];
+					int isr = el.R_DorW_ID.first;
+					int WID = el.R_DorW_ID.second;
+					if (el.bDorW || (val.vet() != CaffeGenDef::vetNumDepGovs)) {
+						cerr << "Error: vet other than word value access of vetNumDepGovs requested table OrdinaVec.\n";
+						break;
+					}
+					int num_govs = max_dep_gov_list[isr][WID];
+					if (num_govs >= c_ordinal_tbl_max) {
+						num_govs = c_ordinal_tbl_max - 1;
+					}
+					Data.push_back(num_govs);
+				}
+
 				else {
 					VarTblEl& el = var_tbl[val.var_src_idx()];
 					int isr = el.R_DorW_ID.first;
@@ -975,6 +1399,9 @@ bool CGenModelRun::DoRun(bool bContinue) {
 							switch (val.vet()) {
 								case CaffeGenDef::vetDepName:
 									s = GenDef.DepNames[rec.iDep];
+									break;
+								case CaffeGenDef::vetDummy:
+									s = "1";
 									break;
 								default:
 									cerr << "Error. Requesting a word field from a dep rec.\n";
@@ -998,8 +1425,11 @@ bool CGenModelRun::DoRun(bool bContinue) {
 								case CaffeGenDef::vetWord:
 									s = rec.Word;
 									break;
-								case CaffeGenDef::vetWordCode: // misspelled. Deal with it!
+								case CaffeGenDef::vetWordCore: 
 									s = rec.WordCore;
+									break;
+								case CaffeGenDef::vetDummy:
+									s = "1";
 									break;
 								default:
 									cerr << "Error. Requesting a dep field from a word rec.\n";
@@ -1009,6 +1439,10 @@ bool CGenModelRun::DoRun(bool bContinue) {
 						}
 					}
 					map<string, int>* mapp = TranslateTblPtrs[val.vec_table_idx()];
+					if (mapp == NULL) {
+						cerr << "Error: NULL translate table access.\n";
+						break;
+					}
 					map<string, int>::iterator itm = mapp->find(s);
 
 					if (itm == mapp->end()) {
@@ -1504,3 +1938,4 @@ bool CGenModelRun::DoRun(bool bContinue) {
 	return true;
 }
 
+ 

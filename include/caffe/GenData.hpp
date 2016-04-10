@@ -109,6 +109,7 @@ struct SWordRecAvail {
         WordCore = datNotSet;
         POS = datNotSet;
         NER = datNotSet;
+//		max_dep_govs = 0;
     }
     SWordRecAvail(DataAvailType InitVal) {
         RegionName = InitVal;
@@ -116,12 +117,14 @@ struct SWordRecAvail {
         WordCore = InitVal;
         POS = InitVal;
         NER = InitVal;
+//		max_dep_govs = 0;
     }
     DataAvailType RegionName;
     DataAvailType Word;
     DataAvailType WordCore;
     DataAvailType POS;
     DataAvailType NER;
+//	int max_dep_govs;
     
 };
 
@@ -231,17 +234,18 @@ public:
 			DepNames(apGenDefTbls->DepNames)
 					
 	{
-        gen_data = NULL;
+        gen_def = NULL;
 		pGenDefTbls = apGenDefTbls;
 		bYouOwnTblsData = abYouOwnTblsData;
 	    pGenDefTbls->getTableNameIdx(string("YesNoTbl"), YesNoTblIdx);
+	    pGenDefTbls->getTableNameIdx(string("OrdinalVecTbl"), OrdinalVecTblIdx);
 
 		
         //test = atest;
     }
     ~CGenDef() {
-        if (gen_data != NULL) {
-            delete gen_data;
+        if (gen_def != NULL) {
+            delete gen_def;
         }
 		if (bYouOwnTblsData) {
 			delete pGenDefTbls;
@@ -249,21 +253,25 @@ public:
     }
     bool ModelInit(string sModelProtoName);
     bool ModelPrep();
-    CaffeGenData* getGenData() {return gen_data; }
+    //CaffeGenData* getGenData() {return gen_data; }
     CaffeGenDef* getGenDef() {return gen_def; }
     vector<pair<int, int> >& getInputTranslateTbl() { return InputTranslateTbl; }
     vector<pair<int, int> >& getOutputTranslateTbl() { return OutputTranslateTbl; }
     vector<vector<vector<float> >* >& getVecTblPtrs() { return VecTblPtrs; }
     vector<map<string, int>*>& getTranslateTblPtrs() { return TranslateTblPtrs; }
     vector<string>& getDepNamesTbl() { return DepNames; };
-    bool setReqTheOneOutput(int& OutputTheOneIdx) ;
+    bool setReqTheOneOutput(int& OutputTheOneIdx, bool& bIsPOS) ;
     int getNumOutputNodesNeeded() { return NumOutputNodesNeeded; }
+    vector<int>& getOutputSetNumNodes() { return OutputSetNumNodes; }
 	vector<pair<int, bool> >& getAccessFilterOrderTbl() { return AccessFilterOrderTbl; }
+	int getYesNoTblIdx() { return YesNoTblIdx; }
+	int getOrdinalVecTblIdx() { return OrdinalVecTblIdx; }
+	//bool CreateAccessOrder();
 //    void DoTest(int atest) {
 //        test = atest;
 //    }
 private:
-    CaffeGenData* gen_data;
+    //CaffeGenData* gen_data;
 	CaffeGenDef * gen_def;
 	CGenDefTbls * pGenDefTbls;
 	bool bYouOwnTblsData;
@@ -274,9 +282,13 @@ private:
     std::map<std::string, int>& TranslateTblNameMap;
     vector<string>& DepNames;
     int YesNoTblIdx; 
+    int OrdinalVecTblIdx; 
+	// for the following two tables the first is the index in the var table (access elements index)
+	// and the second is the index of the table in the VecTblPtrs member variable of this class
     std::vector<std::pair<int, int> > InputTranslateTbl;
     std::vector<std::pair<int, int> > OutputTranslateTbl;
     int NumOutputNodesNeeded;
+	vector<int> OutputSetNumNodes;
     vector<pair<CaffeGenData_FieldType, int> > FirstAccessFieldsIdx; 
     map<string, int> VarNamesMap;
     vector<SDataTranslateEntry> DataTranslateTbl; 
@@ -294,7 +306,13 @@ private:
 	vector<int> MaxInstancesTbl[2];
     bool bCanReplace;
 	vector<pair<int, bool> > AccessFilterOrderTbl; // if second is true, first is access message index else filter message
+	map<string, int> var_tbl_idx_map; // map of name of vars to their index in the AccessFilterOrderTbl
 };
+
+bool CreateAccessOrder(	vector<pair<int, bool> >& AccessFilterOrderTbl, 
+						CaffeGenDef * gen_def,
+						map<string, int>& var_tbl_idx_map);
+
 
 class CGenModelRun {
 public:
@@ -309,6 +327,7 @@ public:
 		DataForVecs(aDataForVecs) {
             OutputTheOneIdx = -1;
             bReqTheOneOutput = false;
+			bTheOneOutputIsPOS = false;
     }
     
     bool DoRun(bool bContinue = false);
@@ -319,6 +338,7 @@ public:
 						int isr, int WID, int isrBeyond, bool b_use_avail);
 	bool FilterTest(	const CaffeGenDef::DataFilter& data_filter,
 						vector<VarTblEl> var_tbl);
+	bool CreateAccessOrder();
     
 private:
     string  GetDepRecField(	int SRecID, int DID, CaffeGenData_FieldType FieldID, 
@@ -333,10 +353,12 @@ private:
     std::vector<SSentenceRec>& SentenceRec; 
     std::vector<CorefRec>& CorefList;
     std::vector<SSentenceRecAvail>& SentenceAvailList; 
+	vector<vector<int> > max_dep_gov_list;
     std::vector<DataAvailType>& CorefAvail;        
     std::vector<SDataForVecs >& DataForVecs;
     bool bReqTheOneOutput;
     int OutputTheOneIdx;
+	bool bTheOneOutputIsPOS;
    
 };
 

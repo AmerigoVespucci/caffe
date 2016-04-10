@@ -1,4 +1,5 @@
 message CaffeGenData {
+	required string not_in_use = 3500;
 	required string name = 1;
 	enum IterateType {
 		ITERATE_WORD = 1;

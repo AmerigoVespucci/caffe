@@ -451,7 +451,7 @@ const bool cb_ReLU = true;
 const bool cb_Sigmoid = true;
 const bool cb_drop = true;
 
-const string cHD5Str1 = "name: \"GramPosValid\"\n"
+const string cHD5Str1 = "name: \"GenNet\"\n"
 					"layer {\n"
 					"	name: \"data\"\n"
 					"	type: \"HDF5Data\"\n"
@@ -653,7 +653,7 @@ string CreateSolverParamStr( float lr)
 					"momentum: 0.9\n"
 					"weight_decay: 0.0005\n"
 					"snapshot: 100000\n"
-					"snapshot_prefix: \"/devlink/caffe/data/NetGen/GramPosValid/models/g\"\n"
+					"snapshot_prefix: \"/devlink/caffe/data/SnapshotsDump/g\"\n"
 					"snapshot_after_train: false\n"
 #ifdef USE_CPU
 					"solver_mode: CPU\n";
@@ -668,7 +668,7 @@ string CreateSolverParamStr( float lr)
 
 
 void NGNet::Gen(vector<int>& num_nodes_in_layer, int mod_idx_idx, float lr, CaffeGenSeed * config) {
-	const float c_drop_rate = 0.2f;
+	const float c_drop_rate = 0.99f; // was stable at 0.2
 	string solver_params_str =	CreateSolverParamStr(lr);
 	SolverParameter solver_param;
 	google::protobuf::TextFormat::ParseFromString(solver_params_str, &solver_param);
@@ -898,7 +898,7 @@ void NetGen::Init() {
 	//boost::timer::cpu_timer progress_timer;
 	//const int max_no_progress = 3;
 	float pre_loss = ng_net->TestOnly();
-	std::cerr << "Loss starting at " << pre_loss << ".\n";
+	LOG(INFO) << "Loss starting at " << pre_loss << ".\n";
 	bool b_test_once = true;
 
 	while(true) {
@@ -908,7 +908,7 @@ void NetGen::Init() {
 		}
 		num_weights_total += (		num_nodes_in_layer[num_nodes_in_layer.size()-1] 
 								*	last_layer_size);
-		std::cerr << "total num weights " << num_weights_total << "\n";
+		LOG(INFO) << "total num weights " << num_weights_total << "\n";
 		
 		double growth_factor = (double)num_weights_total
 								/ c_base_num_weights;
@@ -976,7 +976,7 @@ void NetGen::Init() {
 			switch(mod_action) {
 				case ModActionDoubleLayer:
 					if ((rand() % 10) <= DiscourageDoublingFactor) continue;
-					std::cerr << "trying double layer " << mod_action_param + 1 << "\n";
+					LOG(INFO) << "trying double layer " << mod_action_param + 1 << "\n";
 					ng_net_2.reset(new NGNet());
 					num_nodes_in_layer_mod[mod_action_param] *= 2;
 					ng_net_2->Gen(num_nodes_in_layer_mod, mod_action_param, lr, &config);
@@ -986,24 +986,24 @@ void NetGen::Init() {
 						// don't bother if not even
 						continue;
 					}
-					std::cerr << "trying halving layer " << mod_action_param + 1 << "\n";
+					LOG(INFO) << "trying halving layer " << mod_action_param + 1 << "\n";
 					ng_net_2.reset(new NGNet());
 					num_nodes_in_layer_mod[mod_action_param] /= 2;
 					ng_net_2->Gen(num_nodes_in_layer_mod, mod_action_param, lr, &config);
 					break;
 				case ModActionDoubleLR:
-					std::cerr << "trying increase learning rate\n";
+					LOG(INFO) << "trying increase learning rate\n";
 					ng_net_2.reset(new NGNet());
 					ng_net_2->Gen(num_nodes_in_layer, -1, lr * c_lr_mod_factor, &config);
 					break;
 				case ModActionHalfLR:
 					//if (lr < 0.02f) continue; // experiment limiting lr halving
-					std::cerr << "trying decrease learning rate\n";
+					LOG(INFO) << "trying decrease learning rate\n";
 					ng_net_2.reset(new NGNet());
 					ng_net_2->Gen(num_nodes_in_layer, -1, lr / c_lr_mod_factor, &config);
 					break;
 				default:
-					std::cerr << "better_action unexpected option\n";
+					LOG(INFO) << "better_action unexpected option\n";
 					break;
 			}
 			ng_net_2->SetWeights(ng_net.get());
@@ -1015,7 +1015,7 @@ void NetGen::Init() {
 //				std::cerr << "loss on weights copy (with random) went from " << loss_1 << " to " << loss_2 << ".\n";
 //			}
 			loss_intersection_change = ng_net_2->DoRun(true, growth_factor); // there are more nodes here, so growth_factor could change but not good for comparison
-			std::cerr << "change loss went from " << loss_highway << " to " << loss_intersection_change << ". \n";
+			LOG(INFO) << "change loss went from " << loss_highway << " to " << loss_intersection_change << ". \n";
 			if (loss_highway > loss_intersection_change) {
 				//ng_net.reset(ng_net_2.get());
 				b_found_one_improvement = true;
@@ -1028,28 +1028,28 @@ void NetGen::Init() {
 		
 		float loss_intersection_continue = ng_net->DoRun(true, growth_factor);
 		float this_best_loss;
-		std::cerr << "continue loss went from " << loss_highway << " to " << loss_intersection_continue << ". \n";
+		LOG(INFO) << "continue loss went from " << loss_highway << " to " << loss_intersection_continue << ". \n";
 		if (b_found_one_improvement && (loss_intersection_change < loss_intersection_continue)) {
 			this_best_loss = loss_intersection_change;
 			//num_fails = 0;
 			switch(better_action) {
 				case ModActionDoubleLayer:
 					num_nodes_in_layer[better_action_param] *= 2;
-					std::cerr	<< "upgrading layer " << better_action_param + 1 
+					LOG(INFO)	<< "upgrading layer " << better_action_param + 1 
 								<< " nodes to " << num_nodes_in_layer[better_action_param] << "\n";
 					break;
 				case ModActionHalfLayer:
 					num_nodes_in_layer[better_action_param] /= 2;
-					std::cerr	<< "upgrading by half layer " << better_action_param + 1 
+					LOG(INFO)	<< "upgrading by half layer " << better_action_param + 1 
 								<< " nodes to " << num_nodes_in_layer[better_action_param] << "\n";
 					break;
 				case ModActionDoubleLR:
 					lr *= c_lr_mod_factor;
-					std::cerr << "upgrading by increasing learning rate to " << lr << "\n";
+					LOG(INFO) << "upgrading by increasing learning rate to " << lr << "\n";
 					break;
 				case ModActionHalfLR:
 					lr /= c_lr_mod_factor;
-					std::cerr << "upgrading by decreasing learning rate to " << lr << "\n";
+					LOG(INFO) << "upgrading by decreasing learning rate to " << lr << "\n";
 					break;
 				case NumModActions:
 				default:
@@ -1074,7 +1074,7 @@ void NetGen::Init() {
 		if ((this_best_loss < best_loss) && ((best_loss - this_best_loss) > (best_loss / 1000.0f))) {
 			best_loss = this_best_loss;
 			//progress_timer.stop(); progress_timer.start();
-			std::cerr << "New record for best loss set: " << best_loss << "\n";
+			LOG(INFO) << "New record for best loss set: " << best_loss << "\n";
 			snap.lr = lr; 
 			snap.num_nodes_in_layer = num_nodes_in_layer;
 			ng_net->MakeLiveSnapshot(snap);
@@ -1088,15 +1088,15 @@ void NetGen::Init() {
 //		}
 		num_fails++;
 		if ((num_fails % 3) == 0) {
-			std::cerr << "We have now had " << num_fails << " attempts without improvement\n";
+			LOG(INFO) << "We have now had " << num_fails << " attempts without improvement\n";
 		}
 		if ((num_fails % 9) == 0) {
 			lr = c_start_lr;
-			std::cerr << "Additional step. Resetting learning rate to " << lr << "\n";
+			LOG(INFO) << "Additional step. Resetting learning rate to " << lr << "\n";
 		}
 		if ((num_fails % 15) == 0) {
 			lr = c_start_lr;
-			std::cerr << "Additional step to get out of mess. Going back to snapshot of last record low\n";
+			LOG(INFO) << "Additional step to get out of mess. Going back to snapshot of last record low\n";
 			lr = snap.lr; 
 			num_nodes_in_layer = snap.num_nodes_in_layer;
 			ng_net.reset(new NGNet());
@@ -1108,13 +1108,13 @@ void NetGen::Init() {
 			float loss_1 = ng_net->TestOnly();
 			ng_net->ShakeupWeights();
 			float loss_2 = ng_net->TestOnly();
-			std::cerr << "Additional step. Random Shakeup. Loss on shakeup went from " << loss_1 << " to " << loss_2 << ".\n";
+			LOG(INFO) << "Additional step. Random Shakeup. Loss on shakeup went from " << loss_1 << " to " << loss_2 << ".\n";
 		}
 		if (num_fails  == 30) {
 			// carefull with ifs and elses here. You don't want to create an impossibe if
 			// Make sure that there is a reset to best live snapshot on a lower num_fails value
 			// than the one used to select this option. 
-			std::cerr << "We seem to be at a stable minimum, attempting to add an extra layer to the net\n";
+			LOG(INFO) << "We seem to be at a stable minimum, attempting to add an extra layer to the net\n";
 			// before adding layer, make the starting point a snapshot of the best low so far
 			// floowing code commented out on assumption that new layer is a multiple of return to snapshot
 //			lr = snap.lr; 
@@ -1126,7 +1126,7 @@ void NetGen::Init() {
 			vector<int> num_nodes_in_layer_mod = num_nodes_in_layer;
 			// you can duplicate the last layer, but num_nodes_in_layer only refers to the middle layers, so +1
 			int i_layer_duplicate = rand() % (num_nodes_in_layer_mod.size() + 1); 
-			std::cerr << "duplicating layer " << i_layer_duplicate << "\n";
+			LOG(INFO) << "duplicating layer " << i_layer_duplicate << "\n";
 			if (i_layer_duplicate < num_nodes_in_layer_mod.size()) {
 				vector<int>::iterator itn = num_nodes_in_layer_mod.begin() + i_layer_duplicate;
 				num_nodes_in_layer_mod.insert(itn, num_nodes_in_layer_mod[i_layer_duplicate]);
@@ -1143,13 +1143,13 @@ void NetGen::Init() {
 				ng_net_2->CopyTrainWeightsToTestNet();
 				float loss_1 = ng_net->TestOnly();
 				float loss_2 = ng_net_2->TestOnly();
-				std::cerr << "loss on duplicating layer went from " << loss_1 << " to " << loss_2 << ".\n";
+				LOG(INFO) << "loss on duplicating layer went from " << loss_1 << " to " << loss_2 << ".\n";
 			}
 			ng_net = ng_net_2;
 			num_nodes_in_layer = num_nodes_in_layer_mod;
 		}
 		if (num_fails >= max_no_progress) {
-			std::cerr << "Optimization complete. No better option\n";
+			LOG(INFO) << "Optimization complete. No better option\n";
 			break;
 		}
 	}

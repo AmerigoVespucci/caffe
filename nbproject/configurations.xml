@@ -389,7 +389,7 @@
           </preprocessorList>
         </ccTool>
       </folder>
-      <folder path="0/src">
+      <folder path="0/src/caffe/layers">
         <ccTool>
           <incDir>
             <pElem>.build_release/src</pElem>
@@ -399,14 +399,8 @@
             <pElem>.</pElem>
           </incDir>
           <preprocessorList>
-            <Elem>NDEBUG</Elem>
-          </preprocessorList>
-        </ccTool>
-      </folder>
-      <folder path="0/src/caffe/layers">
-        <ccTool>
-          <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </folder>
@@ -420,64 +414,127 @@
             <pElem>.</pElem>
           </incDir>
           <preprocessorList>
-            <Elem>CAFFE_NET_GEN_MAIN</Elem>
             <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </folder>
       <item path="src/caffe/GenDef.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
+        <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_MULTINET_MAIN</Elem>
+            <Elem>DEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/blob.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/common.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/data_reader.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/data_transformer.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/internal_thread.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/layer.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/layer_factory.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
@@ -814,43 +871,91 @@
       </item>
       <item path="src/caffe/net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/parallel.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/solver.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
-      <item path="src/caffe/solvers/CaffeServer.cpp" ex="false" tool="1" flavor2="0">
-        <ccTool flags="1">
+      <item path="src/caffe/solvers/CaffeServer.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_MULTINET_MAIN</Elem>
+            <Elem>DEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/solvers/MultiNet.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
+        <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_MULTINET_MAIN</Elem>
+            <Elem>DEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/solvers/NetGen.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
+        <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_MULTINET_MAIN</Elem>
+            <Elem>DEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
@@ -859,8 +964,16 @@
             tool="1"
             flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
@@ -869,15 +982,31 @@
             tool="1"
             flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/solvers/adam_solver.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
@@ -886,8 +1015,16 @@
             tool="1"
             flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
@@ -896,165 +1033,334 @@
             tool="1"
             flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/solvers/sgd_solver.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/syncedmem.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/benchmark.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/blocking_queue.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/cudnn.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/db.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/db_leveldb.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/db_lmdb.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/hdf5.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/im2col.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/insert_splits.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/io.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
           <preprocessorList>
             <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
           </preprocessorList>
         </ccTool>
       </item>
       <item path="src/caffe/util/ipc.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="0">
+          <incDir>
+            <pElem>.build_debug/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>CAFFE_MULTINET_MAIN</Elem>
+            <Elem>DEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </item>
+      <item path="src/caffe/util/math_functions.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </item>
+      <item path="src/caffe/util/signal_handler.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </item>
+      <item path="src/caffe/util/upgrade_proto.cpp" ex="false" tool="1" flavor2="4">
+        <ccTool flags="1">
+          <incDir>
+            <pElem>.build_release/src</pElem>
+            <pElem>src</pElem>
+            <pElem>include</pElem>
+            <pElem>/usr/local/cuda/include</pElem>
+            <pElem>.</pElem>
+          </incDir>
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+            <Elem>NDEBUG</Elem>
+          </preprocessorList>
+        </ccTool>
+      </item>
+      <item path="tools/caffe.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
           <preprocessorList>
             <Elem>CAFFE_MULTINET_MAIN</Elem>
           </preprocessorList>
         </ccTool>
       </item>
-      <item path="src/caffe/util/math_functions.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
-          <preprocessorList>
-            <Elem>CAFFE_NET_GEN_MAIN</Elem>
-          </preprocessorList>
-        </ccTool>
-      </item>
-      <item path="src/caffe/util/signal_handler.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
-          <preprocessorList>
-            <Elem>CAFFE_NET_GEN_MAIN</Elem>
-          </preprocessorList>
-        </ccTool>
-      </item>
-      <item path="src/caffe/util/upgrade_proto.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
-          <preprocessorList>
-            <Elem>CAFFE_NET_GEN_MAIN</Elem>
-          </preprocessorList>
-        </ccTool>
-      </item>
-      <item path="tools/caffe.cpp" ex="false" tool="1" flavor2="4">
-        <ccTool flags="1">
-        </ccTool>
-      </item>
       <item path="tools/compute_image_mean.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/convert_imageset.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/device_query.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/extract_features.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/finetune_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/net_speed_benchmark.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/test_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/train_net.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_net_proto_binary.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_net_proto_text.cpp" ex="false" tool="1" flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
       <item path="tools/upgrade_solver_proto_text.cpp"
@@ -1062,6 +1368,9 @@
             tool="1"
             flavor2="4">
         <ccTool flags="1">
+          <preprocessorList>
+            <Elem>CAFFE_NET_GEN_MAIN</Elem>
+          </preprocessorList>
         </ccTool>
       </item>
     </conf>

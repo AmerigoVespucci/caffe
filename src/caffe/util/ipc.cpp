@@ -8,6 +8,7 @@
 #include <sstream>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+#include <glog/logging.h>
 
 #include "caffe/proto/ipc.pb.h"
 #include "caffe/util/ipc.hpp"
@@ -27,7 +28,7 @@ tcp::socket* IPCServerInit(const char * port_str) {
 	tcp::socket* socket = new tcp::socket(io_service);
 	acceptor.accept(*socket);
 	
-	std::cerr << "Server connect request received\n";
+	LOG(INFO) << "Server connect request received\n";
 
 	return socket;
 }
@@ -59,7 +60,7 @@ tcp::socket* IPCClientInit(const char * host, int port_num) {
 	}
 
 	
-	std::cerr << "Client connection established\n";
+	LOG(INFO) << "Client connection established\n";
 
 	return socket;
 }
@@ -96,11 +97,11 @@ int CaffeIPCRcvMsg(tcp::socket& socket, CaffeIpc& Msg) {
 	int len = read(socket, boost::asio::buffer(size_buf), boost::asio::transfer_exactly(sizeof(int)), error);
 	if (error == 0) {
 		int alloc_size = size_buf[0];
-		std::cout << "Receiving a msg of size " << alloc_size << std::endl;
+		LOG(INFO) << "Receiving a msg of size " << alloc_size << std::endl;
 		char * data_buf = new char[alloc_size];
 		len = read(	socket, boost::asio::buffer(data_buf, alloc_size), 
 					boost::asio::transfer_exactly(alloc_size ), error);
-		std::cout << "Read " << len << " bytes\n";
+		LOG(INFO) << "Read " << len << " bytes\n";
 		if (error == 0) {
 			Msg.ParseFromArray(data_buf, alloc_size);
 		}
