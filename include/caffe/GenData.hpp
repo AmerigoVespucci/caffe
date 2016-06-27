@@ -252,7 +252,7 @@ public:
 		}
     }
     bool ModelInit(string sModelProtoName);
-    bool ModelPrep();
+    bool ModelPrep(bool b_prep_from_src = false);
     //CaffeGenData* getGenData() {return gen_data; }
     CaffeGenDef* getGenDef() {return gen_def; }
     vector<pair<int, int> >& getInputTranslateTbl() { return InputTranslateTbl; }
@@ -311,7 +311,8 @@ private:
 
 bool CreateAccessOrder(	vector<pair<int, bool> >& AccessFilterOrderTbl, 
 						CaffeGenDef * gen_def,
-						map<string, int>& var_tbl_idx_map);
+						map<string, int>& var_tbl_idx_map,
+						bool b_target_wrec_src = false);
 
 
 class CGenModelRun {

@@ -12,11 +12,10 @@
         <group>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/MultiNet.cpp</file>
             <file>file:/home/eli/dev/caffe/src/caffe/solvers/NetGen.cpp</file>
+            <file>file:/home/eli/dev/caffe/src/caffe/solvers/CaffeServer.cpp</file>
             <file>file:/home/eli/dev/caffe/tools/caffe.cpp</file>
             <file>file:/home/eli/dev/caffe/include/caffe/GenData.hpp</file>
             <file>file:/home/eli/dev/caffe/Makefile.config</file>
-            <file>file:/home/eli/dev/caffe/.build_release/src/caffe/proto/GenDef.pb.cc</file>
-            <file>file:/home/eli/dev/caffe/.build_release/src/caffe/proto/GenDef.pb.h</file>
         </group>
     </open-files>
     <preferences xmlns="http://www.netbeans.org/ns/auxiliary-configuration-preferences/1">

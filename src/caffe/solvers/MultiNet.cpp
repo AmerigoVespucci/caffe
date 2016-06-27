@@ -974,12 +974,12 @@ void PrintSentence(SSentenceRec& SRec, vector<string>& DepNamesTbl, vector<int>&
 	
 	for (int id = 0; id < deps.size(); id++) {
 		string gov_pos, dep_pos, dep_word, gov_word;
-		int max_govs = 0;
+		int gov_max_govs = 0, dep_max_govs = 0;
 		
 		if (deps[id].Gov  < (uchar)255) {
 			gov_pos = wrecs[deps[id].Gov].POS;
 			gov_word = wrecs[deps[id].Gov].Word;
-			max_govs = max_dep_gov_list[deps[id].Gov];
+			gov_max_govs = max_dep_gov_list[deps[id].Gov];
 		}
 		else {
 			gov_pos = "."; gov_word = ".";
@@ -987,18 +987,17 @@ void PrintSentence(SSentenceRec& SRec, vector<string>& DepNamesTbl, vector<int>&
 		if (deps[id].Dep  < (uchar)255) {
 			dep_pos = wrecs[deps[id].Dep].POS;
 			dep_word = wrecs[deps[id].Dep].Word;
+			dep_max_govs = max_dep_gov_list[deps[id].Dep];
 		}
 		else {
 			dep_pos = "."; dep_word = ".";
 		}
 		cerr	<< DepNamesTbl[deps[id].iDep] << " (" 
-				<< " | " << max_govs << " | "
-				<< gov_word << "{" << gov_pos << "} [" << (int)deps[id].Gov << "], "
-				<< dep_word << "{" << dep_pos << "} [" << (int)deps[id].Dep << "])\n";
+				<< gov_word << "{" << gov_pos << "/" << gov_max_govs << "} [" << (int)deps[id].Gov << "], "
+				<< dep_word << "{" << dep_pos << "/" << dep_max_govs << "} [" << (int)deps[id].Dep << "])\n";
 		LOG(INFO)	<< DepNamesTbl[deps[id].iDep] << " (" 
-				<< " | " << max_govs << " | "
-				<< gov_word << "{" << gov_pos << "} [" << (int)deps[id].Gov << "], "
-				<< dep_word << "{" << dep_pos << "} [" << (int)deps[id].Dep << "])\n";
+				<< gov_word << "{" << gov_pos << "/" << gov_max_govs << "} [" << (int)deps[id].Gov << "], "
+				<< dep_word << "{" << dep_pos << "/" << dep_max_govs << "} [" << (int)deps[id].Dep << "])\n";
 		google::FlushLogFiles(0);
 	}
 	
@@ -1010,6 +1009,7 @@ bool MultiNet::ComposeSentence(	vector<SingleNet>& nets,
 						bool& b_fatal) {
 
 	const int c_max_word_length = 15;
+	const int c_max_max_dep_govs = 5;
 	word_vector_file_name_ = word_vector_file_name;
 	//output_layer_idx_arr_ = vector<int>(5, -1);
 
@@ -1190,7 +1190,7 @@ bool MultiNet::ComposeSentence(	vector<SingleNet>& nets,
 				// the first is word. This output is then 
 				LOG(INFO) << "New max dep govs value: " << iMinDiffLbl << ".\n";
 				b_max_dep_govs_found = true;
-				max_dep_govs = iMinDiffLbl;
+				max_dep_govs = max(iMinDiffLbl, c_max_max_dep_govs);
 			}
 			else { // normal case, output translation is a word, depname, pos etc.
 				// for all cases besides word, there is only one output 
@@ -1681,4 +1681,4 @@ int main(int argc, char** argv) {
 	
 }
 #endif // CAFFE_MULTINET_MAIN
-      
+     

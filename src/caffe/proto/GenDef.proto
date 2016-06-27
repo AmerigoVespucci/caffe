@@ -14,7 +14,8 @@ message CaffeGenDef {
 		required AccessType access_type = 2; 
 		optional string dep_type_to_match = 3; // the name of the dep type to match. Not the integer code
 		optional string POS_to_match = 4;
-		optional int32 var_idx = 5; // place holder for run_time insertion. Index of var table
+		optional string word_to_match = 5;
+		optional int32 var_idx = 6; // place holder for run_time insertion. Index of var table
 		optional int32 max_srec_beyond = 11; // Dep/Word will match in sentence recs beyond the first up till this val. Default 0 only the first sentence
 		optional int32 min_srec_beyond = 12; // Minimum number of sentences beyond the first for this to match. Default 0, any up to max 
 		// required int32 ExecOrderPos = 7; // allows creation of a specific order where 
